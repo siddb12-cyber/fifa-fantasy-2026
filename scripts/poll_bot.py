@@ -21,6 +21,7 @@ CHAT_ID   = os.environ.get('TELEGRAM_CHAT_ID', '')
 SHEET_ID  = os.environ.get('GOOGLE_SHEET_ID', '')
 GCP_CREDS = os.environ.get('GOOGLE_CREDENTIALS_JSON', '')   # base64-encoded JSON
 TEST_MODE = os.environ.get('TEST_MODE', 'true').lower() == 'true'
+FORCE     = os.environ.get('FORCE_SEND', 'false').lower() == 'true'  # bypass timing check
 
 IST  = pytz.timezone('Asia/Kolkata')
 BASE = f'https://api.telegram.org/bot{TOKEN}'
@@ -243,11 +244,15 @@ def main():
         for notif_type, threshold in NOTIFS:
             key = f"{match['id']}::{notif_type}"
 
-            if key in sent_log:
+            if key in sent_log and not FORCE:
                 continue  # already sent
 
-            # Are we inside the 30-min window for this notification?
-            if threshold - WINDOW < diff_min <= threshold:
+            # Are we inside the 30-min window? OR force-sending the first match's poll
+            in_window = threshold - WINDOW < diff_min <= threshold
+            force_this = FORCE and match == matches[0] and notif_type == 'poll'
+
+            if not in_window and not force_this:
+                continue
                 ta, tb = match['team_a'], match['team_b']
                 print(f'  📨 [{notif_type}] {match["id"]} — {ta} vs {tb}  (in {diff_min:.0f} min)')
 

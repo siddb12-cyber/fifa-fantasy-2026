@@ -12,10 +12,10 @@ on:
         description: 'Test mode? (uses test_matches.json)'
         type: boolean
         default: true
-      force_notif:
-        description: 'Force notification type (poll/r6h/r3h/r90m) — leave blank for auto'
-        type: string
-        default: ''
+      force_send:
+        description: 'Force send a test poll immediately (bypasses timing)'
+        type: boolean
+        default: false
 
 jobs:
   send-polls:
@@ -41,4 +41,5 @@ jobs:
           GOOGLE_SHEET_ID:         ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           TEST_MODE:               ${{ github.event.inputs.test_mode || 'true' }}
+          FORCE_SEND:              ${{ github.event.inputs.force_send || 'false' }}
         run: python scripts/poll_bot.py
