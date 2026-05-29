@@ -1,5 +1,5 @@
 # MASTER STATE — FIFA Fantasy 2026
-*Last updated: 2026-05-28*
+*Last updated: 2026-05-29*
 
 ---
 
@@ -7,12 +7,12 @@
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Phase 1 — Avatar Creation | ⏳ PENDING | Awaiting 8 WhatsApp DP images from user |
-| Phase 2 — Google Sheets Setup | ✅ READY (script) | `scripts/setup_sheets.py` built. Needs `google_credentials.json` to run |
-| Phase 3 — WhatsApp Poll Automation | ✅ BUILT | `scripts/poll_scheduler.py`. Needs WhatsApp group name & football-data.org API key |
-| Phase 4 — Dashboard (GitHub Pages) | ✅ BUILT (demo data) | `index.html`, `schedule.html`, `stats.html`, `match/template.html` |
-| Phase 5 — Windows Task Scheduler | ✅ BUILT | `scripts/setup_scheduler.bat` — run as Admin |
-| Phase 6 — Demo Mode | ✅ BUILT | Run `python dashboard_builder.py --demo` |
+| Phase 1 — Avatar Creation | ✅ DONE | All 8 avatar PNGs + jersey backs generated in `assets/avatars/` |
+| Phase 2 — Google Sheets Setup | ⚠️ BLOCKED | `setup_sheets.py` ready. **User must free Google Drive space** (403 quota exceeded) then re-run |
+| Phase 3 — WhatsApp Poll Automation | ✅ BUILT | `scripts/poll_scheduler.py`. Needs football-data.org API key. Group: "FIFA 26 Test Group" |
+| Phase 4 — Dashboard (GitHub Pages) | ✅ LIVE | Deployed at https://siddb12-cyber.github.io/fifa-fantasy-2026/ |
+| Phase 5 — Windows Task Scheduler | ✅ BUILT | `scripts/setup_scheduler.bat` — run as Admin after Sheets setup |
+| Phase 6 — Demo Mode | ✅ LIVE | Portugal 2-1 Argentina demo match live on GitHub Pages |
 
 ---
 
@@ -61,15 +61,19 @@ FIFA World Cup Fantasy Game/
 
 ## Pending Actions (User Must Do)
 
-1. **Add Google credentials**: Place `google_credentials.json` at `C:/Users/siddh/Downloads/HK/FIFA/`
-2. **Run Google Sheet setup**: `python scripts/setup_sheets.py`
-3. **Set API key**: Edit `poll_scheduler.py` and `stats_fetcher.py` → set `FOOTBALL_KEY = "your_key"` (free from football-data.org)
-4. **Set WhatsApp group name**: Edit `poll_scheduler.py` → set `WA_GROUP = "your group name"`
-5. **Upload player DPs**: Place 8 WhatsApp DP images in `assets/avatars/` named: `sidd.jpg`, `kushal.jpg`, etc.
-6. **Initialize GitHub repo**: Create `fifa-fantasy-2026` repo and push this folder
-7. **Enable GitHub Pages**: Set source to `main` branch, `/ (root)` folder
-8. **Register Task Scheduler**: Run `scripts/setup_scheduler.bat` as Administrator
-9. **Run demo**: `python scripts/dashboard_builder.py --demo`
+1. **⚠️ FREE GOOGLE DRIVE SPACE** → Go to drive.google.com → Storage → free up space → then run `python scripts/setup_sheets.py`
+2. **Set football-data.org API key** → Register free at football-data.org → edit `poll_scheduler.py` and `stats_fetcher.py` → set `FOOTBALL_KEY = "your_key"`
+3. **Enable GitHub Pages** → Go to github.com/siddb12-cyber/fifa-fantasy-2026 → Settings → Pages → Source: `main` branch, `/ (root)` folder → Save
+4. **Register Task Scheduler** → Run `scripts/setup_scheduler.bat` as Administrator (after Sheets setup done)
+5. **Update WhatsApp group name** → When real group created, edit `poll_scheduler.py` → set `WA_GROUP = "real group name"`
+
+### ✅ Completed Actions
+- google_credentials.json placed at `C:/Users/siddh/Downloads/HK/FIFA/`
+- All 8 player DPs uploaded to `C:/Users/siddh/Downloads/HK/FIFA/assets/avatars/`
+- GitHub repo created and all files pushed to `main` branch
+- All Python dependencies installed
+- Avatars generated (16 PNG files)
+- Demo dashboard built and deployed
 
 ---
 
@@ -98,5 +102,5 @@ All 8 players seeded at 0 points. No matches played yet.
 
 ## Dashboard URLs
 
-- GitHub Pages: `https://siddb12-cyber.github.io/fifa-fantasy-2026/` ✅ REPO EXISTS
-- Google Sheet: `https://docs.google.com/spreadsheets/d/[SHEET_ID]` ← run setup_sheets.py to get ID
+- GitHub Pages: `https://siddb12-cyber.github.io/fifa-fantasy-2026/` ✅ LIVE (enable Pages in repo settings)
+- Google Sheet: `https://docs.google.com/spreadsheets/d/[SHEET_ID]` ← free Drive space then run setup_sheets.py

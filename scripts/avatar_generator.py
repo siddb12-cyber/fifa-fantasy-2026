@@ -1,108 +1,54 @@
 """
 avatar_generator.py
-FIFA Fantasy 2026 — Cartoon Avatar Generator
+FIFA World Cup 2026 Fantasy — Player Avatar Generator
 
-Reads WhatsApp DP images from:
-  C:/Users/siddh/Downloads/HK/FIFA/assets/avatars/
-  (filenames like: Sidhant (Sidd).jpg, Kushal (Kushal).jpg, etc.)
+Creates premium cartoon-style FIFA cards from WhatsApp DPs.
+Uses OpenCV bilateral filter + adaptive edge detection for real cartoon effect.
 
-Outputs cartoon PNG avatars to:
-  C:/Users/siddh/Downloads/HK/FIFA/FIFA World Cup Fantasy Game/assets/avatars/
-
-Also generates animated GIF stubs for celebration / cry / shrug.
-
-Requirements:
-  pip install Pillow numpy opencv-python
+Usage: python avatar_generator.py
+Outputs to: FIFA World Cup Fantasy Game/assets/avatars/
 """
 
 import os
-import re
-import glob
-import shutil
+import sys
+import math
 import numpy as np
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 
+try:
+    import cv2
+    OPENCV_OK = True
+except ImportError:
+    OPENCV_OK = False
+    print("⚠ opencv-python not found — install with: pip install opencv-python")
+    print("  Falling back to PIL-only cartoon mode (less effective)")
+
 # ── PATHS ─────────────────────────────────────────────────────────────────────
 SRC_DIR  = Path(r"C:\Users\siddh\Downloads\HK\FIFA\assets\avatars")
 OUT_DIR  = Path(r"C:\Users\siddh\Downloads\HK\FIFA\FIFA World Cup Fantasy Game\assets\avatars")
-ANIM_DIR = Path(r"C:\Users\siddh\Downloads\HK\FIFA\FIFA World Cup Fantasy Game\assets\animations")
-
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-ANIM_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── PLAYER CONFIG ─────────────────────────────────────────────────────────────
-# pet_name → (team, jersey_number, primary_color_hex, secondary_color_hex, celebration_emoji)
+# ── PLAYER DATA ───────────────────────────────────────────────────────────────
+# (team, jersey, primary_color, secondary_color, text_color, gradient_end)
 PLAYERS = {
-    "Budhya": ("Portugal",    7,  "#FF0000", "#FFFFFF", "SIUUU! ✈️"),
-    "Ambu":   ("Argentina",   10, "#75AADB", "#FFFFFF", "🙏 Gracias"),
-    "Vini":   ("England",     9,  "#FFFFFF", "#CF111A", "⚽ Come On!"),
-    "Baby":   ("Spain",       8,  "#AA151B", "#F1BF00", "¡Campeones!"),
-    "Abs":    ("Germany",     8,  "#000000", "#FFFFFF", "Danke! 🇩🇪"),
-    "Anna":   ("France",      10, "#002395", "#ED2939", "Allez! 🇫🇷"),
-    "Umaga":  ("Brazil",      10, "#009C3B", "#FFDF00", "Joga Bonito! 🇧🇷"),
-    "PR":     ("Netherlands", 11, "#FF6600", "#FFFFFF", "Oranje! 🇳🇱"),
+    "Budhya": ("Portugal",    7,  "#FF0000", "#006600", "#FFFFFF", "#8B0000"),
+    "Ambu":   ("Argentina",   10, "#75AADB", "#FFFFFF", "#FFFFFF", "#2C6FA6"),
+    "Vini":   ("England",     9,  "#CF111A", "#FFFFFF", "#FFFFFF", "#8B0000"),
+    "Baby":   ("Spain",       8,  "#AA151B", "#F1BF00", "#FFFFFF", "#6B0000"),
+    "Abs":    ("Germany",     8,  "#1C1C1C", "#E8C84A", "#FFFFFF", "#3D3D3D"),
+    "Anna":   ("France",      10, "#002395", "#ED2939", "#FFFFFF", "#001266"),
+    "Umaga":  ("Brazil",      10, "#009C3B", "#FFDF00", "#FFFFFF", "#006B2B"),
+    "PR":     ("Netherlands", 11, "#FF4500", "#FFFFFF", "#FFFFFF", "#CC3700"),
 }
 
-# Filename pattern: "Full Name (PetName).ext"
-# or just "PetName.ext"
-PET_NAME_RE = re.compile(r'\((\w+)\)', re.IGNORECASE)
+TEAM_FLAGS = {
+    "Portugal": "PT", "Argentina": "AR", "England": "EN",
+    "Spain": "ES", "Germany": "DE", "France": "FR",
+    "Brazil": "BR", "Netherlands": "NL",
+}
 
-
-def find_dp(pet_name: str) -> Path | None:
-    """Find the source WhatsApp DP for a given pet name."""
-    for ext in ("jpg", "jpeg", "png", "webp"):
-        # Try exact pattern "Full Name (PetName).ext"
-        for f in SRC_DIR.glob(f"*({pet_name}).{ext}"):
-            return f
-        for f in SRC_DIR.glob(f"*({pet_name.lower()}).{ext}"):
-            return f
-        # Try just "PetName.ext"
-        candidate = SRC_DIR / f"{pet_name}.{ext}"
-        if candidate.exists():
-            return candidate
-        candidate = SRC_DIR / f"{pet_name.lower()}.{ext}"
-        if candidate.exists():
-            return candidate
-    # Fuzzy: any file containing the pet name
-    for f in SRC_DIR.iterdir():
-        if pet_name.lower() in f.stem.lower():
-            return f
-    return None
-
-
-def cartoon_filter(img: Image.Image, size=(300, 300)) -> Image.Image:
-    """
-    Apply a FIFA Ultimate Team cartoon look:
-    1. Resize & crop to square
-    2. Bilateral-style smooth (multiple box blurs)
-    3. Boost saturation & contrast
-    4. Subtle edge darken via multiply
-    """
-    # Crop to square from center
-    w, h = img.size
-    s    = min(w, h)
-    img  = img.crop(((w-s)//2, (h-s)//2, (w+s)//2, (h+s)//2))
-    img  = img.resize(size, Image.LANCZOS).convert("RGB")
-
-    # Smooth (simulate bilateral)
-    smooth = img
-    for _ in range(4):
-        smooth = smooth.filter(ImageFilter.SMOOTH_MORE)
-
-    # Boost saturation
-    sat = ImageEnhance.Color(smooth)
-    smooth = sat.enhance(1.8)
-
-    # Boost contrast
-    con = ImageEnhance.Contrast(smooth)
-    smooth = con.enhance(1.3)
-
-    # Boost brightness slightly
-    bri = ImageEnhance.Brightness(smooth)
-    smooth = bri.enhance(1.05)
-
-    return smooth
+CARD_W, CARD_H = 440, 600
 
 
 def hex_to_rgb(h: str):
@@ -110,300 +56,314 @@ def hex_to_rgb(h: str):
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
 
-def make_avatar_card(
-    face_img: Image.Image,
-    pet_name: str,
-    team: str,
-    jersey_num: int,
-    primary: str,
-    secondary: str,
-    size=(400, 520),
-) -> Image.Image:
+def find_dp(pet_name: str):
+    """Find WhatsApp DP by (PetName) pattern in source dir."""
+    for ext in ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG"):
+        for f in SRC_DIR.glob(ext):
+            if f"({pet_name})" in f.name:
+                return f
+            if f"({pet_name.lower()})" in f.name.lower():
+                return f
+    return None
+
+
+# ── CARTOON EFFECT ────────────────────────────────────────────────────────────
+def cartoon_opencv(img_pil: Image.Image, size=(320, 320)) -> Image.Image:
     """
-    Compose a FIFA Ultimate Team card:
-    ┌──────────────────────────┐
-    │  TEAM    [JerseyNum]     │  ← primary color header
-    │  ┌────────────────────┐  │
-    │  │   [FACE PHOTO]     │  │  ← cartoon face
-    │  └────────────────────┘  │
-    │         PET NAME         │  ← secondary color footer
-    │         [TEAM]           │
-    └──────────────────────────┘
+    Real cartoon effect:
+    1. Bilateral filter x7 — smooth colors, preserve edges
+    2. Saturation + brightness boost — vibrant palette
+    3. Adaptive threshold — black outlines
+    4. Combine smoothed + edges
     """
-    W, H   = size
-    card   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    draw   = ImageDraw.Draw(card)
-    pr     = hex_to_rgb(primary)
-    sc     = hex_to_rgb(secondary)
+    img_pil = img_pil.resize(size, Image.LANCZOS)
+    img_bgr = cv2.cvtColor(np.array(img_pil.convert("RGB")), cv2.COLOR_RGB2BGR)
 
-    # ── CARD BACKGROUND ── rounded rectangle
-    bg_color = (15, 20, 15, 255)
-    draw.rounded_rectangle([(0, 0), (W-1, H-1)], radius=28, fill=bg_color, outline=(*pr, 255), width=4)
+    # Step 1: Multiple bilateral passes (the core of cartoon effect)
+    smooth = img_bgr.copy()
+    for _ in range(7):
+        smooth = cv2.bilateralFilter(smooth, d=9, sigmaColor=200, sigmaSpace=200)
 
-    # ── GOLD SHIMMER TOP STRIPE ──
-    draw.rounded_rectangle([(4, 4), (W-5, 90)], radius=24, fill=(*pr, 220))
+    # Step 2: Boost saturation for punchy cartoon colors
+    hsv = cv2.cvtColor(smooth, cv2.COLOR_BGR2HSV).astype(np.float32)
+    hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 1.6, 0, 255)
+    hsv[:, :, 2] = np.clip(hsv[:, :, 2] * 1.1, 0, 255)
+    smooth = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
 
-    # ── JERSEY NUMBER (top left) ──
-    try:
-        font_big  = ImageFont.truetype("arial.ttf", 52)
-        font_med  = ImageFont.truetype("arial.ttf", 28)
-        font_sm   = ImageFont.truetype("arial.ttf", 22)
-        font_name = ImageFont.truetype("arialbd.ttf", 34)
-    except OSError:
-        font_big  = ImageFont.load_default()
-        font_med  = font_big
-        font_sm   = font_big
-        font_name = font_big
-
-    # Jersey number on header
-    num_color = sc if sc != (255, 255, 255) else (255, 215, 0)
-    draw.text((20, 10), f"#{jersey_num}", font=font_big, fill=(*num_color, 255))
-
-    # Team name on header (right)
-    draw.text((W - 10, 18), team.upper(), font=font_sm, fill=(*sc, 220), anchor="ra")
-
-    # ── FACE CIRCLE ──
-    face_size = 240
-    face_y    = 95
-    face_x    = (W - face_size) // 2
-
-    # Circle background (glow)
-    glow_r = face_size // 2 + 8
-    glow_x = face_x + face_size // 2
-    glow_y = face_y + face_size // 2
-    for r_off in range(8, 0, -1):
-        alpha = int(80 * (1 - r_off / 8))
-        draw.ellipse(
-            [glow_x - glow_r - r_off//2, glow_y - glow_r - r_off//2,
-             glow_x + glow_r + r_off//2, glow_y + glow_r + r_off//2],
-            fill=(*pr, alpha)
-        )
-
-    # Mask face to circle
-    face_resized = face_img.resize((face_size, face_size), Image.LANCZOS).convert("RGBA")
-    mask         = Image.new("L", (face_size, face_size), 0)
-    ImageDraw.Draw(mask).ellipse([(0, 0), (face_size, face_size)], fill=255)
-    face_circle  = Image.new("RGBA", (face_size, face_size), (0, 0, 0, 0))
-    face_circle.paste(face_resized, mask=mask)
-
-    card.paste(face_circle, (face_x, face_y), face_circle)
-
-    # Circle border
-    draw.ellipse(
-        [face_x - 4, face_y - 4, face_x + face_size + 4, face_y + face_size + 4],
-        outline=(*pr, 255), width=4
+    # Step 3: Edge detection on median-blurred grayscale
+    gray      = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    gray_blur = cv2.medianBlur(gray, 7)
+    edges     = cv2.adaptiveThreshold(
+        gray_blur, 255,
+        cv2.ADAPTIVE_THRESH_MEAN_C,
+        cv2.THRESH_BINARY,
+        blockSize=9, C=4
     )
 
-    # ── FOOTER SECTION ──
-    footer_y = face_y + face_size + 18
+    # Step 4: Apply edge mask over smoothed image
+    cartoon_bgr = cv2.bitwise_and(smooth, smooth, mask=edges)
 
-    # Divider line
-    draw.line([(20, footer_y), (W-20, footer_y)], fill=(*pr, 120), width=1)
+    return Image.fromarray(cv2.cvtColor(cartoon_bgr, cv2.COLOR_BGR2RGB))
 
-    # Pet name (large, centered)
-    draw.text((W//2, footer_y + 16), pet_name.upper(), font=font_name,
-              fill=(255, 215, 0, 255), anchor="mt")
 
-    # Team (smaller, centered)
-    draw.text((W//2, footer_y + 58), team, font=font_med,
-              fill=(*sc, 200), anchor="mt")
+def cartoon_pil(img_pil: Image.Image, size=(320, 320)) -> Image.Image:
+    """Fallback PIL cartoon: smooth + edge enhance + saturation."""
+    img = img_pil.resize(size, Image.LANCZOS)
+    for _ in range(8):
+        img = img.filter(ImageFilter.SMOOTH_MORE)
+    img = img.filter(ImageFilter.EDGE_ENHANCE_MORE)
+    img = ImageEnhance.Color(img).enhance(1.8)
+    img = ImageEnhance.Contrast(img).enhance(1.3)
+    img = ImageEnhance.Sharpness(img).enhance(1.5)
+    return img
 
-    # FIFA 2026 branding
-    draw.text((W//2, H - 22), "FIFA WORLD CUP 2026", font=font_sm,
-              fill=(*pr, 160), anchor="ms")
+
+def apply_cartoon(img_pil: Image.Image, size=(320, 320)) -> Image.Image:
+    if OPENCV_OK:
+        return cartoon_opencv(img_pil, size)
+    return cartoon_pil(img_pil, size)
+
+
+# ── CIRCLE CROP ───────────────────────────────────────────────────────────────
+def circle_crop(img: Image.Image, size: int) -> Image.Image:
+    img = img.resize((size, size), Image.LANCZOS).convert("RGBA")
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size, size), fill=255)
+    result = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    result.paste(img, mask=mask)
+    return result
+
+
+# ── GRADIENT ──────────────────────────────────────────────────────────────────
+def vertical_gradient(draw, x0, y0, x1, y1, color_top, color_bottom):
+    r1, g1, b1 = color_top
+    r2, g2, b2 = color_bottom
+    h = max(y1 - y0, 1)
+    for y in range(h):
+        t = y / (h - 1) if h > 1 else 0
+        r = int(r1 + (r2 - r1) * t)
+        g = int(g1 + (g2 - g1) * t)
+        b = int(b1 + (b2 - b1) * t)
+        draw.line([(x0, y0 + y), (x1, y0 + y)], fill=(r, g, b))
+
+
+# ── PREMIUM CARD ──────────────────────────────────────────────────────────────
+def make_avatar_card(pet, face_cartoon, team, jersey,
+                     primary, secondary, text_col, grad_end):
+    W, H       = CARD_W, CARD_H
+    GOLD       = (212, 175, 55)
+    GOLD_LIGHT = (255, 215, 0)
+    BLACK      = (8, 8, 16)
+    WHITE      = (255, 255, 255)
+
+    p_rgb = hex_to_rgb(primary)
+    s_rgb = hex_to_rgb(secondary)
+    g_rgb = hex_to_rgb(grad_end)
+
+    # ── BASE CANVAS ──
+    card = Image.new("RGB", (W, H), BLACK)
+    draw = ImageDraw.Draw(card)
+
+    # Background gradient (team color top → near-black bottom)
+    vertical_gradient(draw, 0, 0, W, int(H * 0.5), g_rgb, BLACK)
+    vertical_gradient(draw, 0, int(H * 0.5), W, H, BLACK, (12, 12, 22))
+
+    # ── GOLD BORDER ──
+    for i in range(4):
+        draw.rounded_rectangle([i, i, W - i, H - i], radius=22 - i,
+                                outline=(*GOLD, 255 - i * 40), width=1)
+
+    # ── TOP BAND ──
+    draw.rounded_rectangle([5, 5, W - 5, 68], radius=17, fill=p_rgb)
+
+    # ── FONTS ──
+    def load_font(name, size):
+        for fname in [name, "arial.ttf", "Arial.ttf"]:
+            try:
+                return ImageFont.truetype(fname, size)
+            except Exception:
+                pass
+        return ImageFont.load_default()
+
+    num_font  = load_font("arialbd.ttf", 32)
+    name_font = load_font("arialbd.ttf", 44)
+    sub_font  = load_font("arial.ttf",   19)
+    sm_font   = load_font("arial.ttf",   15)
+
+    # ── JERSEY NUMBER BADGE ──
+    bx, by, bs = 14, 10, 52
+    draw.rounded_rectangle([bx, by, bx + bs, by + bs], radius=10, fill=GOLD)
+    draw.rounded_rectangle([bx + 3, by + 3, bx + bs - 3, by + bs - 3], radius=7, fill=p_rgb)
+    ns  = str(jersey)
+    nb  = draw.textbbox((0, 0), ns, font=num_font)
+    nw  = nb[2] - nb[0]
+    nh  = nb[3] - nb[1]
+    draw.text((bx + (bs - nw) // 2, by + (bs - nh) // 2 - 2), ns, font=num_font, fill=GOLD_LIGHT)
+
+    # ── TEAM NAME (top right) ──
+    tu = team.upper()
+    tb = draw.textbbox((0, 0), tu, font=sub_font)
+    draw.text((W - (tb[2] - tb[0]) - 18, 24), tu, font=sub_font, fill=WHITE)
+
+    # ── FACE PHOTO WITH RINGS ──
+    face_size  = 240
+    face_x_ctr = W // 2
+    face_y_top = 82
+
+    # Outer gold glow (soft)
+    glow = face_size + 36
+    glow_img  = Image.new("RGBA", (glow, glow), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow_img)
+    for i in range(14):
+        a = max(0, 90 - i * 6)
+        gd.ellipse([i, i, glow - i, glow - i], outline=(*GOLD_LIGHT, a), width=2)
+    card.paste(glow_img, (face_x_ctr - glow // 2, face_y_top - 18), glow_img)
+
+    # Gold ring
+    ring = face_size + 14
+    ri   = Image.new("RGBA", (ring, ring), (0, 0, 0, 0))
+    rd   = ImageDraw.Draw(ri)
+    rd.ellipse([0, 0, ring, ring], fill=(*GOLD, 255))
+    rd.ellipse([5, 5, ring - 5, ring - 5], fill=(0, 0, 0, 0))
+    card.paste(ri, (face_x_ctr - ring // 2, face_y_top - 7), ri)
+
+    # Team-color inner ring
+    ir   = face_size + 4
+    ii   = Image.new("RGBA", (ir, ir), (0, 0, 0, 0))
+    Id   = ImageDraw.Draw(ii)
+    Id.ellipse([0, 0, ir, ir], fill=(*p_rgb, 255))
+    Id.ellipse([3, 3, ir - 3, ir - 3], fill=(0, 0, 0, 0))
+    card.paste(ii, (face_x_ctr - ir // 2, face_y_top - 2), ii)
+
+    # Circular cartoon face
+    face_circle = circle_crop(face_cartoon, face_size)
+    card.paste(face_circle.convert("RGB"),
+               (face_x_ctr - face_size // 2, face_y_top),
+               face_circle.split()[3])
+
+    # ── SEPARATOR ──
+    sep_y = face_y_top + face_size + 24
+    draw.line([(60, sep_y), (W - 60, sep_y)], fill=GOLD, width=2)
+    draw.line([(80, sep_y + 4), (W - 80, sep_y + 4)], fill=(*GOLD, 80), width=1)
+
+    # ── PLAYER NAME ──
+    pet_u = pet.upper()
+    pb    = draw.textbbox((0, 0), pet_u, font=name_font)
+    pw    = pb[2] - pb[0]
+    name_y = sep_y + 12
+    draw.text(((W - pw) // 2 + 2, name_y + 2), pet_u, font=name_font, fill=(0, 0, 0))
+    draw.text(((W - pw) // 2, name_y), pet_u, font=name_font, fill=GOLD_LIGHT)
+
+    # ── TEAM SUBTITLE ──
+    star_col = s_rgb if max(s_rgb) > 50 else GOLD
+    sub_str  = f"★  {team.upper()}  ★"
+    sb       = draw.textbbox((0, 0), sub_str, font=sm_font)
+    sw       = sb[2] - sb[0]
+    draw.text(((W - sw) // 2, name_y + 52), sub_str, font=sm_font, fill=star_col)
+
+    # ── FOOTER BAR ──
+    fy = H - 54
+    draw.rounded_rectangle([5, fy, W - 5, H - 5], radius=16, fill=p_rgb)
+    draw.rounded_rectangle([5, fy, W - 5, fy + 20], radius=16, fill=(*WHITE, 20))
+
+    ftxt = "⚽  FIFA WORLD CUP 2026  ⚽"
+    try:
+        ft = draw.textbbox((0, 0), ftxt, font=sm_font)
+        fw = ft[2] - ft[0]
+        draw.text(((W - fw) // 2, fy + 18), ftxt, font=sm_font, fill=(*GOLD_LIGHT, 230))
+    except Exception:
+        pass
 
     return card
 
 
-def make_back_of_jersey(
-    pet_name: str,
-    jersey_num: int,
-    primary: str,
-    secondary: str,
-    size=(400, 520),
-) -> Image.Image:
-    """Back of jersey showing pet name + number (for sharing)."""
-    W, H = size
-    img  = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+# ── JERSEY BACK ───────────────────────────────────────────────────────────────
+def make_jersey_back(pet, jersey, primary, secondary):
+    W, H  = 300, 380
+    GOLD  = (212, 175, 55)
+    p_rgb = hex_to_rgb(primary)
+    s_rgb = hex_to_rgb(secondary)
+
+    img  = Image.new("RGB", (W, H), p_rgb)
     draw = ImageDraw.Draw(img)
-    pr   = hex_to_rgb(primary)
-    sc   = hex_to_rgb(secondary)
 
-    # Jersey background
-    draw.rounded_rectangle([(0, 0), (W-1, H-1)], radius=28, fill=(*pr, 255), outline=(255, 215, 0, 255), width=3)
+    # Jersey stripe texture
+    for y in range(0, H, 14):
+        lighter = tuple(min(255, c + 18) for c in p_rgb)
+        draw.line([(0, y), (W, y)], fill=lighter, width=7)
 
-    # Horizontal collar
-    draw.rounded_rectangle([(W//2-60, 10), (W//2+60, 80)], radius=20, fill=(*sc, 200))
+    # Gold border
+    draw.rounded_rectangle([3, 3, W - 3, H - 3], radius=16, outline=GOLD, width=3)
 
-    try:
-        f_big  = ImageFont.truetype("arialbd.ttf", 80)
-        f_name = ImageFont.truetype("arialbd.ttf", 48)
-    except OSError:
-        f_big  = ImageFont.load_default()
-        f_name = f_big
+    def load_font(name, size):
+        for fn in [name, "arial.ttf"]:
+            try:
+                return ImageFont.truetype(fn, size)
+            except Exception:
+                pass
+        return ImageFont.load_default()
 
-    # Name on back
-    draw.text((W//2, 160), pet_name.upper(), font=f_name, fill=(*sc, 255), anchor="mm",
-              stroke_width=2, stroke_fill=(*pr, 200))
+    big_font  = load_font("arialbd.ttf", 110)
+    name_font = load_font("arialbd.ttf", 36)
+    tiny_font = load_font("arial.ttf", 16)
 
-    # Number on back
-    draw.text((W//2, 320), str(jersey_num), font=f_big, fill=(*sc, 255), anchor="mm",
-              stroke_width=3, stroke_fill=(*pr, 200))
+    # Number
+    ns = str(jersey)
+    nb = draw.textbbox((0, 0), ns, font=big_font)
+    nw = nb[2] - nb[0]
+    draw.text(((W - nw) // 2 + 3, 75 + 3), ns, font=big_font, fill=(0, 0, 0, 80))
+    draw.text(((W - nw) // 2, 75), ns, font=big_font,
+              fill=s_rgb if max(s_rgb) > 50 else GOLD)
+
+    # Name
+    pu = pet.upper()
+    pb = draw.textbbox((0, 0), pu, font=name_font)
+    pw = pb[2] - pb[0]
+    draw.text(((W - pw) // 2, 208), pu, font=name_font, fill=GOLD)
+
+    draw.line([(40, 258), (W - 40, 258)], fill=(*GOLD, 180), width=2)
+
+    ft  = "FIFA WORLD CUP 2026"
+    fb  = draw.textbbox((0, 0), ft, font=tiny_font)
+    fw  = fb[2] - fb[0]
+    draw.text(((W - fw) // 2, 270), ft, font=tiny_font, fill=(*s_rgb[:3], 200))
 
     return img
 
 
-def make_celebration_gif(pet_name: str, primary: str, secondary: str) -> list[Image.Image]:
-    """Simple 6-frame celebration GIF — avatar bouncing with trophy."""
-    frames = []
-    pr = hex_to_rgb(primary)
-    sc = hex_to_rgb(secondary)
-    W, H = 200, 200
-
-    for i in range(6):
-        frame = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        draw  = ImageDraw.Draw(frame)
-
-        # Pulsing circle
-        r = 80 + (i % 3) * 6
-        draw.ellipse([(W//2-r, H//2-r), (W//2+r, H//2+r)], fill=(*pr, 200))
-
-        # Trophy emoji area
-        try:
-            fnt = ImageFont.truetype("seguiemj.ttf", 60)
-        except OSError:
-            fnt = ImageFont.load_default()
-
-        # Bounce offset
-        y_off = -8 if i % 2 == 0 else 8
-        draw.text((W//2, H//2 + y_off), "🏆", font=fnt, anchor="mm")
-
-        # Name
-        try:
-            fnt_sm = ImageFont.truetype("arial.ttf", 18)
-        except OSError:
-            fnt_sm = ImageFont.load_default()
-        draw.text((W//2, H - 20), pet_name, font=fnt_sm, fill=(*sc, 255), anchor="mm")
-
-        frames.append(frame)
-    return frames
-
-
-def make_cry_gif() -> list[Image.Image]:
-    """Simple 4-frame crying animation."""
-    frames = []
-    W, H = 200, 200
-    for i in range(4):
-        frame = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        draw  = ImageDraw.Draw(frame)
-        draw.ellipse([(60, 40), (140, 120)], fill=(150, 180, 255, 200))
-        # Tear drops (animated position)
-        ty = 100 + i * 15
-        draw.ellipse([(85, ty), (95, ty+20)], fill=(100, 150, 255, 180))
-        draw.ellipse([(105, ty-5), (115, ty+15)], fill=(100, 150, 255, 180))
-        try:
-            fnt = ImageFont.truetype("seguiemj.ttf", 40)
-        except OSError:
-            fnt = ImageFont.load_default()
-        draw.text((W//2, 75), "😢", font=fnt, anchor="mm")
-        frames.append(frame)
-    return frames
-
-
-def make_shrug_gif() -> list[Image.Image]:
-    """Simple 4-frame shrug animation."""
-    frames = []
-    W, H = 200, 200
-    for i in range(4):
-        frame = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        draw  = ImageDraw.Draw(frame)
-        draw.ellipse([(60, 30), (140, 110)], fill=(180, 160, 140, 200))
-        try:
-            fnt = ImageFont.truetype("seguiemj.ttf", 50)
-        except OSError:
-            fnt = ImageFont.load_default()
-        # Shrug alternates
-        emoji = "🤷" if i % 2 == 0 else "🤷‍♂️"
-        draw.text((W//2, 140), emoji, font=fnt, anchor="mm")
-        frames.append(frame)
-    return frames
-
-
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 def main():
-    print("=== FIFA Fantasy 2026 — Avatar Generator ===\n")
+    print("\n" + "=" * 62)
+    print("  FIFA Fantasy 2026 — Cartoon Avatar Generator")
+    print(f"  Cartoon method: {'OpenCV bilateral+edge' if OPENCV_OK else 'PIL fallback'}")
+    print("=" * 62 + "\n")
 
-    # List source images
-    print(f"Looking for DPs in: {SRC_DIR}")
-    src_files = list(SRC_DIR.iterdir()) if SRC_DIR.exists() else []
-    print(f"Found {len(src_files)} files: {[f.name for f in src_files]}\n")
+    success = 0
+    for pet, (team, jersey, primary, secondary, text_col, grad_end) in PLAYERS.items():
+        dp_path = find_dp(pet)
+        if not dp_path:
+            print(f"  ⚠  {pet}: DP not found in {SRC_DIR}")
+            print(f"       Expected: *({pet})*.jpg")
+            continue
 
-    generated = []
-    skipped   = []
+        print(f"  🎨  {pet}  ({team} #{jersey})  ←  {dp_path.name}")
+        try:
+            face_raw = Image.open(dp_path).convert("RGB")
+            # Centre-square crop
+            w, h = face_raw.size
+            m    = min(w, h)
+            face_raw = face_raw.crop(((w - m)//2, (h - m)//2,
+                                       (w + m)//2, (h + m)//2))
 
-    for pet_name, (team, jersey_num, primary, secondary, cel) in PLAYERS.items():
-        print(f"Processing {pet_name} ({team} #{jersey_num})...")
+            face_cartoon = apply_cartoon(face_raw, size=(320, 320))
 
-        dp_path = find_dp(pet_name)
-        if dp_path is None:
-            print(f"  ⚠️  No DP found for {pet_name} — generating placeholder")
-            # Create a colored placeholder face
-            face = Image.new("RGB", (300, 300), hex_to_rgb(primary))
-            draw = ImageDraw.Draw(face)
-            try:
-                fnt = ImageFont.truetype("arial.ttf", 60)
-            except OSError:
-                fnt = ImageFont.load_default()
-            draw.text((150, 150), pet_name[0].upper(), font=fnt,
-                      fill=hex_to_rgb(secondary), anchor="mm")
-        else:
-            print(f"  ✅ Found DP: {dp_path.name}")
-            face = Image.open(dp_path).convert("RGB")
-            face = cartoon_filter(face, size=(300, 300))
+            card = make_avatar_card(pet, face_cartoon, team, jersey,
+                                    primary, secondary, text_col, grad_end)
+            p = OUT_DIR / f"{pet.lower()}_avatar.png"
+            card.save(p, "PNG", optimize=True)
+            print(f"       ✅  {p.name}")
 
-        # Front card avatar
-        card = make_avatar_card(face, pet_name, team, jersey_num, primary, secondary)
-        out_front = OUT_DIR / f"{pet_name.lower()}_avatar.png"
-        card.save(out_front, "PNG")
-        print(f"  💾 Saved: {out_front.name}")
-
-        # Back of jersey
-        back = make_back_of_jersey(pet_name, jersey_num, primary, secondary)
-        out_back = OUT_DIR / f"{pet_name.lower()}_jersey_back.png"
-        back.save(out_back, "PNG")
-
-        generated.append(pet_name)
-
-        # ── ANIMATED GIFs ──
-        # Celebration
-        cel_frames = make_celebration_gif(pet_name, primary, secondary)
-        cel_path   = ANIM_DIR / f"{pet_name.lower()}_celebrate.gif"
-        cel_frames[0].save(
-            cel_path, save_all=True, append_images=cel_frames[1:],
-            duration=200, loop=0, format="GIF"
-        )
-
-        print(f"  🎉 Celebration GIF: {cel_path.name}")
-
-    # Shared cry GIF
-    cry_frames = make_cry_gif()
-    cry_path   = ANIM_DIR / "cry.gif"
-    cry_frames[0].save(cry_path, save_all=True, append_images=cry_frames[1:], duration=250, loop=0)
-    print(f"\n😢 Cry GIF saved: {cry_path.name}")
-
-    # Shared shrug GIF
-    shrug_frames = make_shrug_gif()
-    shrug_path   = ANIM_DIR / "shrug.gif"
-    shrug_frames[0].save(shrug_path, save_all=True, append_images=shrug_frames[1:], duration=300, loop=0)
-    print(f"🤷 Shrug GIF saved: {shrug_path.name}")
-
-    print(f"\n=== Done! ===")
-    print(f"✅ Generated: {generated}")
-    if skipped:
-        print(f"⚠️  Skipped:   {skipped}")
-    print(f"\nAvatars saved to: {OUT_DIR}")
-    print(f"Animations saved to: {ANIM_DIR}")
-
-
-if __name__ == "__main__":
-    main()
+            jersey_card = make_jersey_back(pet, jersey, primary, secondary)
+            jp = OUT_DIR / f"{pet.lower()}_jersey_back.png"
+            jersey_card.save(jp, "PNG", optimize=True)
+       
