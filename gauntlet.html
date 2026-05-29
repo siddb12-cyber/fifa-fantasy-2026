@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Gauntlet · FIFA Fantasy 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06060f;
+  --glass:rgba(255,255,255,0.04);
+  --glass-b:rgba(255,255,255,0.08);
+  --text:#f1f5f9;
+  --muted:#64748b;
+  --accent:#f59e0b;
+  --purple:#8b5cf6;
+  --cyan:#06b6d4;
+  --emerald:#10b981;
+}
+body{
+  font-family:'Plus Jakarta Sans',sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;overflow-x:hidden;
+}
+
+/* AURORA */
+.aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(100px);opacity:.25;animation:drift 25s infinite ease-in-out}
+.b1{width:600px;height:600px;background:var(--purple);top:-200px;left:-150px}
+.b2{width:500px;height:500px;background:var(--cyan);bottom:-200px;right:-100px;animation-delay:-12s}
+.b3{width:600px;height:600px;background:#059669;top:40%;left:40%;animation-delay:-6s}
+@keyframes drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(30px,-40px) scale(1.06)}}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 48px;
+  background:rgba(6,6,15,.75);
+  backdrop-filter:blur(24px);border-bottom:1px solid var(--glass-b);
+}
+.logo{font-weight:900;font-size:17px;text-decoration:none;color:var(--text)}
+.logo em{font-style:normal;color:var(--accent)}
+.nav-links{display:flex;gap:8px}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;transition:all .2s}
+.nav-links a:hover{color:var(--text);background:var(--glass)}
+.nav-links a.active{color:var(--accent)}
+
+/* PAGE */
+.page{position:relative;z-index:1;padding-top:90px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+/* HERO */
+.hero{text-align:center;padding:60px 24px 64px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:11px;letter-spacing:4px;font-weight:700;color:var(--purple);
+  background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);
+  padding:6px 16px;border-radius:99px;margin-bottom:20px;
+}
+.hero h1{
+  font-size:clamp(52px,10vw,120px);
+  font-weight:900;letter-spacing:-5px;line-height:.88;
+  margin-bottom:16px;
+}
+.grad-sword{
+  background:linear-gradient(135deg,var(--gold,#fbbf24) 0%,var(--purple) 50%,var(--cyan) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-desc{
+  max-width:520px;margin:0 auto;
+  color:var(--muted);font-size:17px;line-height:1.6;
+}
+
+/* GRID */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:20px;
+  padding-bottom:80px;
+}
+
+/* PLAYER CARD */
+.player-card{
+  background:var(--glass);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--glass-b);
+  border-radius:24px;
+  padding:32px 24px 28px;
+  text-align:center;
+  transition:all .3s cubic-bezier(.34,1.56,.64,1);
+  position:relative;
+  overflow:hidden;
+  cursor:default;
+}
+.player-card::before{
+  content:'';
+  position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 0%,var(--card-color,rgba(139,92,246,.15)),transparent 70%);
+  pointer-events:none;
+}
+.player-card:hover{
+  transform:translateY(-10px) scale(1.02);
+  border-color:rgba(255,255,255,.15);
+  box-shadow:0 30px 80px rgba(0,0,0,.4);
+}
+
+.av-ring{
+  display:inline-block;
+  padding:3px;border-radius:50%;
+  background:var(--card-color,linear-gradient(135deg,var(--purple),var(--cyan)));
+  margin-bottom:16px;
+}
+.av-img{
+  width:100px;height:100px;border-radius:50%;
+  object-fit:cover;display:block;
+  background:rgba(255,255,255,.05);
+}
+.av-ph{
+  width:100px;height:100px;border-radius:50%;
+  background:linear-gradient(135deg,var(--purple),var(--cyan));
+  display:none;align-items:center;justify-content:center;
+  font-size:40px;
+}
+
+.archetype{
+  font-size:9px;letter-spacing:3px;font-weight:700;
+  color:var(--muted);margin-bottom:6px;
+  text-transform:uppercase;
+}
+.pet-name{font-size:26px;font-weight:900;letter-spacing:-.5px;margin-bottom:2px}
+.full-name{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:14px}
+.bio{font-size:13px;color:var(--muted);line-height:1.55}
+
+.card-num{
+  position:absolute;top:18px;right:20px;
+  font-size:64px;font-weight:900;
+  color:rgba(255,255,255,.03);
+  line-height:1;pointer-events:none;
+  letter-spacing:-4px;
+}
+
+/* DIVIDER */
+.sec-hd{
+  font-size:10px;letter-spacing:4px;font-weight:700;color:var(--muted);
+  margin-bottom:28px;display:flex;align-items:center;gap:12px;
+}
+.sec-hd::after{content:'';flex:1;height:1px;background:var(--glass-b)}
+
+/* SCORING RULES */
+.rules-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:80px}
+.rule-card{
+  background:var(--glass);backdrop-filter:blur(20px);
+  border:1px solid var(--glass-b);border-radius:20px;
+  padding:24px;text-align:center;
+}
+.rule-val{font-size:40px;font-weight:900;margin-bottom:6px}
+.rule-val.ok{color:#10b981}
+.rule-val.bad{color:#ef4444}
+.rule-val.miss{color:#f97316}
+.rule-lbl{font-size:12px;color:var(--muted);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="aurora">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
+
+<nav>
+  <a class="logo" href="index.html">⚽ <em>FIFA</em> FANTASY</a>
+  <div class="nav-links">
+    <a href="index.html">🏆 Leaderboard</a>
+    <a href="schedule.html">📅 Schedule</a>
+    <a href="stats.html">📊 Stats</a>
+    <a href="gauntlet.html" class="active">⚔️ The Gauntlet</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="hero">
+    <div class="eyebrow">⚔️ MEET THE COMPETITION</div>
+    <h1><span class="grad-sword">THE</span><br>GAUNTLET</h1>
+    <p class="hero-desc">Eight friends. 104 matches. One bragging right that lasts forever.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="sec-hd">THE EIGHT</div>
+    <div class="grid" id="squad"></div>
+
+    <div class="sec-hd">HOW POINTS WORK</div>
+    <div class="rules-grid">
+      <div class="rule-card">
+        <div class="rule-val ok">+3</div>
+        <div class="rule-lbl">Correct prediction</div>
+      </div>
+      <div class="rule-card">
+        <div class="rule-val bad">0</div>
+        <div class="rule-lbl">Wrong prediction</div>
+      </div>
+      <div class="rule-card">
+        <div class="rule-val miss">−2</div>
+        <div class="rule-lbl">Didn't answer</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SQUAD = [
+  {
+    pet:"Budhya", full:"Sidhant Budhkar",
+    archetype:"The Mastermind",
+    bio:"Runs probability calculations in his head before every pick. Has a spreadsheet of spreadsheets.",
+    color:"rgba(239,68,68,.2)", num:"1"
+  },
+  {
+    pet:"Ambu", full:"Kushal Ambulkar",
+    archetype:"The Wildcard",
+    bio:"Goes purely on gut. Somehow picks upsets before they happen. Nobody knows how.",
+    color:"rgba(139,92,246,.2)", num:"2"
+  },
+  {
+    pet:"Vini", full:"Vineet Nayak",
+    archetype:"The Dark Horse",
+    bio:"Quiet. Unassuming. Then suddenly top of the table with no explanation.",
+    color:"rgba(255,255,255,.08)", num:"3"
+  },
+  {
+    pet:"Baby", full:"Susmit Gulavani",
+    archetype:"The Believer",
+    bio:"Backs his picks with undying passion. Will debate a wrong answer for three days.",
+    color:"rgba(239,68,68,.15)", num:"4"
+  },
+  {
+    pet:"Abs", full:"Abhishek Desai",
+    archetype:"The Silent Assassin",
+    bio:"Says nothing. Submits his pick. Checks back to see he's winning. Rinse, repeat.",
+    color:"rgba(234,179,8,.15)", num:"5"
+  },
+  {
+    pet:"Anna", full:"Nishant Salian",
+    archetype:"The Contrarian",
+    bio:"If everyone says Team A, he picks Team B. Philosophy: the crowd is always wrong.",
+    color:"rgba(59,130,246,.18)", num:"6"
+  },
+  {
+    pet:"Umaga", full:"Umang Budhkar",
+    archetype:"The Optimist",
+    bio:"Picks the team with the better kit. Has accidentally been right more times than he deserves.",
+    color:"rgba(16,185,129,.18)", num:"7"
+  },
+  {
+    pet:"PR", full:"Pranav Raut",
+    archetype:"The Perfectionist",
+    bio:"Over-researches every single match. Reads three previews, watches two analysis videos, then gets it wrong.",
+    color:"rgba(249,115,22,.18)", num:"8"
+  },
+];
+
+document.getElementById("squad").innerHTML = SQUAD.map(p => `
+  <div class="player-card" style="--card-color:${p.color}">
+    <div class="card-num">${p.num}</div>
+    <div class="av-ring" style="background:linear-gradient(135deg,${p.color.replace('rgba','rgb').replace(',.',',.').replace(/,[\d.]+\)$/,',.8)')},transparent)">
+      <img class="av-img" src="assets/avatars/${p.pet.toLowerCase()}_avatar.png" alt="${p.pet}"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="av-ph" style="display:none">⚽</div>
+    </div>
+    <div class="archetype">${p.archetype}</div>
+    <div class="pet-name">${p.pet}</div>
+    <div class="full-name">${p.full}</div>
+    <div class="bio">${p.bio}</div>
+  </div>
+`).join("");
+</script>
+</body>
+</html>
