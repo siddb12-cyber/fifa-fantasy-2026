@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title id="page-title">⚽ Match Preview — FIFA Fantasy 2026</title>
+<style>
+  :root{
+    --green:#00a651;--dark-green:#005c2a;--gold:#ffd700;
+    --bg:#0a0f0a;--card:#111a11;--card2:#162016;--border:#1e3a1e;
+    --text:#e8f5e8;--muted:#6b9c6b;--red:#ff4444;--blue:#3388ff;--orange:#ff8800;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+  .header{background:linear-gradient(135deg,var(--dark-green),#001a00);border-bottom:2px solid var(--green);padding:20px 24px;text-align:center;}
+  .header h1{font-size:clamp(1.2rem,4vw,2rem);font-weight:800;letter-spacing:2px;}
+  .header h1 span{color:var(--gold);}
+  nav{background:var(--card);border-bottom:1px solid var(--border);display:flex;justify-content:center;flex-wrap:wrap;}
+  nav a{padding:12px 20px;color:var(--muted);text-decoration:none;font-size:.85rem;font-weight:600;text-transform:uppercase;border-bottom:3px solid transparent;transition:all .2s;}
+  nav a:hover{color:var(--green);border-bottom-color:var(--green);}
+  main{max-width:900px;margin:0 auto;padding:24px 16px;}
+
+  /* ── HERO MATCHUP ── */
+  .hero{
+    background:linear-gradient(135deg,#0d1f0d,#1a0d0d,#0d1a0d);
+    border:1px solid var(--border);border-radius:16px;padding:32px 24px;
+    text-align:center;margin-bottom:24px;position:relative;overflow:hidden;
+  }
+  .hero::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(ellipse at 30% 50%,rgba(0,166,81,.1),transparent 50%),
+               radial-gradient(ellipse at 70% 50%,rgba(255,68,68,.08),transparent 50%);
+  }
+  .hero-teams{display:flex;align-items:center;justify-content:center;gap:16px;position:relative;}
+  .hero-team{text-align:center;flex:1;max-width:200px;}
+  .hero-flag{font-size:4rem;line-height:1;margin-bottom:8px;}
+  .hero-name{font-size:1.1rem;font-weight:800;}
+  .hero-sub{font-size:.75rem;color:var(--muted);}
+  .hero-vs{font-size:1.4rem;font-weight:900;color:var(--muted);padding:0 8px;}
+  .hero-score{font-size:3.5rem;font-weight:900;color:var(--gold);line-height:1;}
+  .hero-meta{color:var(--muted);font-size:.82rem;margin-top:12px;}
+  .hero-venue{font-size:.75rem;color:var(--muted);margin-top:4px;}
+  .status-pill{
+    display:inline-block;padding:4px 16px;border-radius:20px;font-size:.75rem;font-weight:700;
+    margin-top:12px;letter-spacing:.5px;
+  }
+  .pill-upcoming{background:rgba(52,136,255,.2);color:var(--blue);border:1px solid var(--blue);}
+  .pill-live{background:rgba(0,166,81,.2);color:var(--green);border:1px solid var(--green);animation:blink 1s infinite;}
+  .pill-completed{background:rgba(255,215,0,.15);color:var(--gold);border:1px solid var(--gold);}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.6}}
+
+  /* ── COUNTDOWN ── */
+  .countdown-bar{
+    background:var(--card2);border:1px solid var(--border);border-radius:10px;
+    padding:12px 20px;margin-bottom:20px;text-align:center;
+  }
+  .countdown-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .countdown-time{font-size:2rem;font-weight:900;color:var(--green);letter-spacing:4px;font-variant-numeric:tabular-nums;}
+
+  /* ── GRID LAYOUT ── */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+  @media(max-width:600px){.two-col{grid-template-columns:1fr;}}
+
+  /* ── CARDS ── */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;}
+  .card h3{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--green);margin-bottom:12px;}
+
+  /* ── H2H ── */
+  .h2h-bar{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin:8px 0;}
+  .h2h-val{font-size:1.8rem;font-weight:900;text-align:center;}
+  .h2h-lbl{font-size:.7rem;color:var(--muted);text-align:center;}
+  .h2h-label{font-size:.75rem;color:var(--muted);text-align:center;}
+
+  /* ── FORM ── */
+  .form-badges{display:flex;gap:4px;flex-wrap:wrap;}
+  .badge{
+    width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    font-size:.7rem;font-weight:800;
+  }
+  .badge-w{background:rgba(0,166,81,.3);color:var(--green);}
+  .badge-d{background:rgba(107,156,107,.2);color:var(--muted);}
+  .badge-l{background:rgba(255,68,68,.2);color:var(--red);}
+
+  /* ── LINEUP ── */
+  .lineup{font-family:monospace;font-size:.75rem;color:var(--text);line-height:1.8;text-align:center;}
+  .lineup .pos{color:var(--muted);}
+  .lineup .player-name{font-weight:700;}
+
+  /* ── FANTASY PREDICTION ── */
+  .pred-bar{height:10px;border-radius:5px;margin:4px 0;}
+  .pred-item{margin:8px 0;}
+  .pred-label{display:flex;justify-content:space-between;font-size:.75rem;margin-bottom:2px;}
+  .pred-pct{font-weight:700;color:var(--green);}
+
+  /* ── MATCH STATS (post-match) ── */
+  .stat-compare{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin:6px 0;}
+  .stat-compare .val-a{text-align:right;font-weight:700;}
+  .stat-compare .val-b{text-align:left;font-weight:700;}
+  .stat-compare .lbl{font-size:.7rem;color:var(--muted);text-align:center;}
+  .stat-bar-wrap{grid-column:1/-1;display:flex;height:4px;border-radius:2px;overflow:hidden;margin-top:2px;}
+  .stat-bar-a{background:var(--green);}
+  .stat-bar-b{background:var(--blue);}
+
+  /* ── PLAYER POINTS ── */
+  .pts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;}
+  .pts-mini{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;}
+  .pts-mini .name{font-size:.7rem;font-weight:600;}
+  .pts-mini .pts{font-size:1.3rem;font-weight:900;}
+  .pts-mini .pts-pos{color:var(--green);}
+  .pts-mini .pts-neg{color:var(--red);}
+  .pts-mini .pts-zero{color:var(--muted);}
+  .pts-mini .ans{font-size:.65rem;color:var(--muted);margin-top:2px;}
+
+  footer{text-align:center;padding:24px;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);margin-top:32px;}
+  footer a{color:var(--green);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>⚽ FIFA World Cup <span>2026</span></h1>
+</div>
+<nav>
+  <a href="../index.html">🏆 Leaderboard</a>
+  <a href="../schedule.html">📅 Schedule</a>
+  <a href="../stats.html">📊 Stats</a>
+</nav>
+<main>
+
+  <!-- HERO MATCHUP -->
+  <div class="hero" id="hero-section">
+    <div class="hero-teams">
+      <div class="hero-team">
+        <div class="hero-flag" id="flag-a">🇵🇹</div>
+        <div class="hero-name" id="name-a">Portugal</div>
+        <div class="hero-sub" id="sub-a">#7 · C. Ronaldo</div>
+      </div>
+      <div style="text-align:center">
+        <div class="hero-vs" id="score-display">vs</div>
+        <div class="status-pill pill-upcoming" id="status-pill">📅 UPCOMING</div>
+      </div>
+      <div class="hero-team">
+        <div class="hero-flag" id="flag-b">🇦🇷</div>
+        <div class="hero-name" id="name-b">Argentina</div>
+        <div class="hero-sub" id="sub-b">#10 · L. Messi</div>
+      </div>
+    </div>
+    <div class="hero-meta" id="match-meta">Group H · 15 Jun 2026 04:00 IST</div>
+    <div class="hero-venue" id="match-venue">🏟️ Estadio Azteca, Mexico City</div>
+  </div>
+
+  <!-- COUNTDOWN (pre-match) -->
+  <div class="countdown-bar" id="countdown-section">
+    <div class="countdown-label">Kickoff in</div>
+    <div class="countdown-time" id="countdown-display">--:--:--</div>
+  </div>
+
+  <!-- PRE-MATCH CONTENT -->
+  <div id="pre-match-content">
+    <div class="two-col">
+      <!-- HEAD-TO-HEAD -->
+      <div class="card">
+        <h3>🤝 Head to Head (Last 10)</h3>
+        <div class="h2h-bar">
+          <div>
+            <div class="h2h-val" id="h2h-a" style="color:var(--green)">4</div>
+            <div class="h2h-lbl" id="h2h-a-name">Portugal</div>
+          </div>
+          <div>
+            <div class="h2h-val" style="color:var(--muted)">3</div>
+            <div class="h2h-lbl">Draws</div>
+          </div>
+          <div>
+            <div class="h2h-val" id="h2h-b" style="color:var(--blue)">3</div>
+            <div class="h2h-lbl" id="h2h-b-name">Argentina</div>
+          </div>
+        </div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:8px;line-height:1.8">
+          <div>🏆 Portugal 2-1 Argentina (WC 2022 QF)</div>
+          <div>🤝 Argentina 0-0 Portugal (Friendly 2019)</div>
+          <div>🏆 Portugal 2-2 Argentina (WC 2010 R16)</div>
+        </div>
+      </div>
+
+      <!-- RECENT FORM -->
+      <div class="card">
+        <h3>📈 Recent Form (Last 5)</h3>
+        <div style="margin-bottom:8px">
+          <div style="font-size:.75rem;color:var(--muted);margin-bottom:4px" id="form-label-a">🇵🇹 Portugal</div>
+          <div class="form-badges" id="form-a">
+            <div class="badge badge-w">W</div>
+            <div class="badge badge-w">W</div>
+            <div class="badge badge-d">D</div>
+            <div class="badge badge-w">W</div>
+            <div class="badge badge-w">W</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:.75rem;color:var(--muted);margin-bottom:4px" id="form-label-b">🇦🇷 Argentina</div>
+          <div class="form-badges" id="form-b">
+            <div class="badge badge-w">W</div>
+            <div class="badge badge-w">W</div>
+            <div class="badge badge-w">W</div>
+            <div class="badge badge-l">L</div>
+            <div class="badge badge-w">W</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <!-- PREDICTED XI - Team A -->
+      <div class="card">
+        <h3 id="lineup-a-title">🇵🇹 Portugal — Predicted XI (4-3-3)</h3>
+        <div class="lineup" id="lineup-a">
+          <div><span class="pos">GK</span> <span class="player-name">Diogo Costa</span></div>
+          <div><span class="pos">RB</span> <span class="player-name">João Cancelo</span></div>
+          <div><span class="pos">CB</span> <span class="player-name">Rúben Dias</span></div>
+          <div><span class="pos">CB</span> <span class="player-name">Pepe</span></div>
+          <div><span class="pos">LB</span> <span class="player-name">Nuno Mendes</span></div>
+          <div><span class="pos">CM</span> <span class="player-name">Bruno Fernandes</span></div>
+          <div><span class="pos">CM</span> <span class="player-name">Bernardo Silva</span></div>
+          <div><span class="pos">CM</span> <span class="player-name">João Palhinha</span></div>
+          <div><span class="pos">RW</span> <span class="player-name">Rafael Leão</span></div>
+          <div><span class="pos">ST</span> <span class="player-name">🌟 Cristiano Ronaldo</span></div>
+          <div><span class="pos">LW</span> <span class="player-name">Diogo Jota</span></div>
+        </div>
+      </div>
+
+      <!-- PREDICTED XI - Team B -->
+      <div class="card">
+        <h3 id="lineup-b-title">🇦🇷 Argentina — Predicted XI (4-2-3-1)</h3>
+        <div class="lineup" id="lineup-b">
+          <div><span class="pos">GK</span> <span class="player-name">Emiliano Martínez</span></div>
+          <div><span class="pos">RB</span> <span class="player-name">Nahuel Molina</span></div>
+          <div><span class="pos">CB</span> <span class="player-name">Cristian Romero</span></div>
+          <div><span class="pos">CB</span> <span class="player-name">Lisandro Martínez</span></div>
+          <div><span class="pos">LB</span> <span class="player-name">Marcos Acuña</span></div>
+          <div><span class="pos">CDM</span> <span class="player-name">Enzo Fernández</span></div>
+          <div><span class="pos">CDM</span> <span class="player-name">Rodrigo De Paul</span></div>
+          <div><span class="pos">AM</span> <span class="player-name">🌟 Lionel Messi</span></div>
+          <div><span class="pos">RW</span> <span class="player-name">Paulo Dybala</span></div>
+          <div><span class="pos">ST</span> <span class="player-name">Julián Álvarez</span></div>
+          <div><span class="pos">LW</span> <span class="player-name">Ángel Di María</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FANTASY PREDICTION -->
+    <div class="card" style="margin-bottom:16px">
+      <h3>🔮 Fantasy Group Prediction</h3>
+      <div id="pred-container">
+        <div class="pred-item">
+          <div class="pred-label"><span>🇵🇹 Portugal win</span><span class="pred-pct" id="pred-a">50%</span></div>
+          <div class="pred-bar" style="background:linear-gradient(90deg,var(--green),rgba(0,166,81,.3));width:50%"></div>
+        </div>
+        <div class="pred-item">
+          <div class="pred-label"><span>🤝 Draw</span><span class="pred-pct" id="pred-d">25%</span></div>
+          <div class="pred-bar" style="background:linear-gradient(90deg,var(--muted),rgba(107,156,107,.3));width:25%"></div>
+        </div>
+        <div class="pred-item">
+          <div class="pred-label"><span>🇦🇷 Argentina win</span><span class="pred-pct" id="pred-b">25%</span></div>
+          <div class="pred-bar" style="background:linear-gradient(90deg,var(--blue),rgba(52,136,255,.3));width:25%"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- POST-MATCH CONTENT (shown after match) -->
+  <div id="post-match-content" style="display:none">
+
+    <!-- MATCH STATS -->
+    <div class="card" style="margin-bottom:16px">
+      <h3>📊 Match Statistics</h3>
+      <div id="match-stats-container">
+        <!-- Populated by dashboard_builder.py -->
+      </div>
+    </div>
+
+    <!-- FANTASY POINTS -->
+    <div class="card">
+      <h3>🏆 Fantasy Points — This Match</h3>
+      <div class="pts-grid" id="pts-grid"></div>
+    </div>
+
+  </div>
+
+</main>
+<footer>
+  FIFA Fantasy 2026 · <a href="../index.html">Back to Leaderboard</a>
+</footer>
+
+<script>
+// ── MATCH DATA (injected by dashboard_builder.py) ────────────────────────────
+const MATCH = {"id": "DEMO", "stage": "Demo Match", "date": "15 Jun 2026 04:00", "teamA": "Portugal", "teamB": "Argentina", "flagA": "🇵🇹", "flagB": "🇦🇷", "venue": "MetLife Stadium", "city": "East Rutherford, NJ", "status": "Completed", "scoreA": 2, "scoreB": 1, "voteCounts": {"a": 5, "draw": 1, "b": 2}, "playerPoints": [{"player": "Budhya", "ans": "Portugal", "pts": 3}, {"player": "Anna", "ans": "Portugal", "pts": 3}, {"player": "Vini", "ans": "Portugal", "pts": 3}, {"player": "Ambu", "ans": "Argentina", "pts": 0}, {"player": "Baby", "ans": "Draw", "pts": 0}, {"player": "Abs", "ans": "Argentina", "pts": 0}, {"player": "Umaga", "ans": "MISSED", "pts": -2}, {"player": "PR", "ans": "MISSED", "pts": -2}]};
+const _unused = {
+  id:"M043", stage:"Group H", date:"15 Jun 2026 04:00",
+  teamA:"Portugal", teamB:"Argentina", flagA:"🇵🇹", flagB:"🇦🇷",
+  venue:"Estadio Azteca", city:"Mexico City",
+  status:"Upcoming",
+  scoreA:null, scoreB:null,
+  voteCounts:{a:4, draw:1, b:3},
+  playerPoints:[
+    {player:"Budhya",ans:"Portugal",  pts:3},
+    {player:"Anna",  ans:"Portugal",  pts:3},
+    {player:"Vini",  ans:"Portugal",  pts:3},
+    {player:"Ambu",  ans:"Argentina", pts:0},
+    {player:"Baby",  ans:"Draw",      pts:0},
+    {player:"Abs",   ans:"Argentina", pts:0},
+    {player:"Umaga", ans:"MISSED",    pts:-2},
+    {player:"PR",    ans:"MISSED",    pts:-2},
+  ],
+};
+
+function parseIST(str){
+  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  const [d,m,y,t] = str.split(" ");
+  const [h,min] = t.split(":");
+  return new Date(Date.UTC(+y, months[m], +d, +h-5, +min-30));
+}
+
+function renderMatchPage(){
+  const m = MATCH;
+  document.title = `${m.teamA} vs ${m.teamB} — FIFA Fantasy 2026`;
+  document.getElementById("flag-a").textContent   = m.flagA;
+  document.getElementById("name-a").textContent   = m.teamA;
+  document.getElementById("flag-b").textContent   = m.flagB;
+  document.getElementById("name-b").textContent   = m.teamB;
+  document.getElementById("match-meta").textContent = `${m.stage} · ${m.date} IST`;
+  document.getElementById("match-venue").textContent = `🏟️ ${m.venue}, ${m.city}`;
+
+  const status = m.status;
+  if(status === "Completed" && m.scoreA !== null){
+    document.getElementById("score-display").textContent = `${m.scoreA} — ${m.scoreB}`;
+    document.getElementById("score-display").style.fontSize = "2.5rem";
+    document.getElementById("score-display").style.color = "var(--gold)";
+    document.getElementById("status-pill").textContent = "✅ FULL TIME";
+    document.getElementById("status-pill").className = "status-pill pill-completed";
+    document.getElementById("countdown-section").style.display = "none";
+    document.getElementById("post-match-content").style.display = "block";
+    renderPlayerPoints();
+  } else if(status === "Live") {
+    document.getElementById("status-pill").textContent = "🟢 LIVE";
+    document.getElementById("status-pill").className = "status-pill pill-live";
+    document.getElementById("countdown-section").style.display = "none";
+  } else {
+    startCountdown(m.date);
+  }
+
+  // Prediction bars
+  const total = (m.voteCounts?.a||0) + (m.voteCounts?.draw||0) + (m.voteCounts?.b||0);
+  if(total > 0){
+    document.getElementById("pred-a").textContent = Math.round((m.voteCounts.a/total)*100) + "%";
+    document.getElementById("pred-d").textContent = Math.round((m.voteCounts.draw/total)*100) + "%";
+    document.getElementById("pred-b").textContent = Math.round((m.voteCounts.b/total)*100) + "%";
+  }
+}
+
+function renderPlayerPoints(){
+  const grid = document.getElementById("pts-grid");
+  grid.innerHTML = (MATCH.playerPoints || []).map(p => {
+    const cls = p.pts > 0 ? "pts-pos" : (p.pts < 0 ? "pts-neg" : "pts-zero");
+    return `
+      <div class="pts-mini">
+        <div class="name">${p.player}</div>
+        <div class="pts ${cls}">${p.pts > 0 ? "+" : ""}${p.pts}</div>
+        <div class="ans">${p.ans}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function startCountdown(dateStr){
+  const target = parseIST(dateStr);
+  function update(){
+    const now  = new Date();
+    const diff = target - now;
+    if(diff <= 0){
+      document.getElementById("countdown-display").textContent = "🚀 KICKOFF!";
+      return;
+    }
+    const d  = Math.floor(diff/86400000);
+    const h  = Math.floor((diff%86400000)/3600000);
+    const mn = Math.floor((diff%3600000)/60000);
+    const s  = Math.floor((diff%60000)/1000);
+    document.getElementById("countdown-display").textContent =
+      `${d}d ${String(h).padStart(2,"0")}h ${String(mn).padStart(2,"0")}m ${String(s).padStart(2,"0")}s`;
+  }
+  update();
+  setInterval(update, 1000);
+}
+
+renderMatchPage();
+</script>
+</body>
+</html>

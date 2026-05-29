@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>📊 FIFA Fantasy 2026 — Stats Hub</title>
+<style>
+  :root{
+    --green:#00a651;--dark-green:#005c2a;--gold:#ffd700;
+    --bg:#0a0f0a;--card:#111a11;--card2:#162016;--border:#1e3a1e;
+    --text:#e8f5e8;--muted:#6b9c6b;--red:#ff4444;--blue:#3388ff;--orange:#ff8800;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+  .header{background:linear-gradient(135deg,var(--dark-green),#001a00);border-bottom:2px solid var(--green);padding:20px 24px;text-align:center;}
+  .header h1{font-size:clamp(1.2rem,4vw,2rem);font-weight:800;letter-spacing:2px;}
+  .header h1 span{color:var(--gold);}
+  nav{background:var(--card);border-bottom:1px solid var(--border);display:flex;justify-content:center;flex-wrap:wrap;}
+  nav a{padding:12px 20px;color:var(--muted);text-decoration:none;font-size:.85rem;font-weight:600;text-transform:uppercase;border-bottom:3px solid transparent;transition:all .2s;}
+  nav a:hover,nav a.active{color:var(--green);border-bottom-color:var(--green);}
+  main{max-width:1100px;margin:0 auto;padding:24px 16px;}
+
+  /* ── TABS ── */
+  .tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;flex-wrap:wrap;}
+  .tab-btn{
+    padding:10px 20px;background:none;border:none;border-bottom:3px solid transparent;
+    color:var(--muted);font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:.5px;
+  }
+  .tab-btn:hover,.tab-btn.active{color:var(--green);border-bottom-color:var(--green);}
+
+  /* ── TOP CHART CARDS ── */
+  .chart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:32px;}
+  .chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;overflow:hidden;}
+  .chart-card h3{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .chart-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+  .chart-row:last-child{border-bottom:none;}
+  .chart-rank{font-size:.7rem;font-weight:700;color:var(--muted);width:20px;text-align:center;}
+  .chart-flag{font-size:1.1rem;width:24px;text-align:center;}
+  .chart-name{flex:1;font-size:.82rem;font-weight:600;}
+  .chart-team{font-size:.65rem;color:var(--muted);}
+  .chart-bar-wrap{width:80px;position:relative;}
+  .chart-bar{height:6px;background:var(--green);border-radius:3px;transition:width .6s ease;}
+  .chart-val{font-size:.85rem;font-weight:800;color:var(--gold);width:32px;text-align:right;}
+
+  /* ── DATA TABLE ── */
+  .table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+  .data-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+  .data-table th{background:var(--dark-green);color:var(--text);padding:10px 12px;text-align:center;font-weight:700;white-space:nowrap;position:sticky;top:0;}
+  .data-table th:first-child{text-align:left;}
+  .data-table td{padding:9px 12px;text-align:center;border-top:1px solid var(--border);white-space:nowrap;}
+  .data-table td:first-child{text-align:left;font-weight:600;}
+  .data-table tbody tr:hover td{background:rgba(0,166,81,.06);}
+  .data-table tbody tr:nth-child(even) td{background:rgba(255,255,255,.02);}
+
+  .pct-bar{height:6px;background:var(--green);border-radius:3px;margin:2px 0;max-width:100%;}
+
+  .tag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:.65rem;font-weight:700;}
+  .tag-gold{background:rgba(255,215,0,.2);color:var(--gold);}
+  .tag-red{background:rgba(255,68,68,.2);color:var(--red);}
+  .tag-blue{background:rgba(52,136,255,.2);color:var(--blue);}
+
+  /* ── GOLDEN BOOT RACE ── */
+  .golden-boot{background:var(--card);border:1px solid var(--gold);border-radius:12px;padding:20px;margin-bottom:24px;}
+  .golden-boot h2{font-size:1rem;font-weight:800;color:var(--gold);margin-bottom:16px;text-align:center;}
+  .boot-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+  .boot-row:last-child{border-bottom:none;}
+  .boot-rank{font-size:1.2rem;width:32px;}
+  .boot-info{flex:1;}
+  .boot-player{font-weight:700;font-size:.88rem;}
+  .boot-team{font-size:.7rem;color:var(--muted);}
+  .boot-bar-wrap{flex:2;}
+  .boot-bar{height:12px;background:linear-gradient(90deg,var(--gold),var(--orange));border-radius:6px;transition:width .8s ease;}
+  .boot-goals{font-size:1.2rem;font-weight:900;color:var(--gold);width:40px;text-align:right;}
+
+  .section-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--green);margin:24px 0 12px;display:flex;align-items:center;gap:12px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  footer{text-align:center;padding:24px;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);margin-top:32px;}
+  footer a{color:var(--green);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📊 FIFA World Cup <span>2026</span> — Stats Hub</h1>
+</div>
+<nav>
+  <a href="index.html">🏆 Leaderboard</a>
+  <a href="schedule.html">📅 Schedule</a>
+  <a href="stats.html" class="active">📊 Stats</a>
+</nav>
+<main>
+
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('players',this)">👟 Player Stats</button>
+    <button class="tab-btn" onclick="showTab('teams',this)">🏆 Team Stats</button>
+    <button class="tab-btn" onclick="showTab('charts',this)">📈 Top Charts</button>
+  </div>
+
+  <!-- GOLDEN BOOT RACE (always visible) -->
+  <div class="golden-boot">
+    <h2>👟 Golden Boot Race — Top Scorers</h2>
+    <div id="golden-boot-list"></div>
+  </div>
+
+  <!-- TAB: PLAYER STATS -->
+  <div id="tab-players">
+    <div class="section-title">Player Statistics</div>
+    <div class="table-wrap">
+      <table class="data-table" id="player-table">
+        <thead>
+          <tr>
+            <th>Player</th><th>Team</th><th>MP</th><th>⚽ G</th><th>🎯 A</th>
+            <th>🟨 YC</th><th>🟥 RC</th><th>⏱ Min</th><th>xG</th>
+            <th>Pass%</th><th>Key Pass</th><th>Dribbles</th><th>Rating</th>
+          </tr>
+        </thead>
+        <tbody id="player-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: TEAM STATS -->
+  <div id="tab-teams" style="display:none">
+    <div class="section-title">Team Statistics</div>
+    <div class="table-wrap">
+      <table class="data-table" id="team-table">
+        <thead>
+          <tr>
+            <th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th>
+            <th>GF</th><th>GA</th><th>GD</th><th>Pts</th>
+            <th>Poss%</th><th>Shots</th><th>On Tgt</th><th>xG</th>
+            <th>Pass%</th><th>Tackles</th><th>Fouls</th><th>YC</th><th>RC</th>
+          </tr>
+        </thead>
+        <tbody id="team-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: TOP CHARTS -->
+  <div id="tab-charts" style="display:none">
+    <div class="chart-grid" id="chart-grid"></div>
+  </div>
+
+</main>
+<footer>
+  FIFA Fantasy 2026 · Stats from <a href="https://football-data.org">football-data.org</a> · Updates every 30 min
+</footer>
+
+<script>
+// ── DEMO DATA (replaced by dashboard_builder.py with live data) ───────────────
+const SCORERS = window.SCORERS || [
+  {rank:1, player:"Cristiano Ronaldo", team:"Portugal 🇵🇹 (Budhya)", flag:"🇵🇹", goals:3, assists:1, xg:2.8, rating:8.4},
+  {rank:2, player:"Lionel Messi",      team:"Argentina 🇦🇷 (Ambu)",  flag:"🇦🇷", goals:3, assists:2, xg:2.5, rating:9.1},
+  {rank:3, player:"Kylian Mbappé",     team:"France 🇫🇷 (Anna)",     flag:"🇫🇷", goals:2, assists:1, xg:2.1, rating:8.7},
+  {rank:4, player:"Harry Kane",        team:"England 🏴󠁧󠁢󠁥󠁮󠁧󠁿 (Vini)",    flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", goals:2, assists:0, xg:1.9, rating:7.8},
+  {rank:5, player:"Vinicius Jr",       team:"Brazil 🇧🇷 (Umaga)",    flag:"🇧🇷", goals:2, assists:2, xg:1.7, rating:8.3},
+];
+
+const PLAYER_STATS = window.PLAYER_STATS || [
+  {player:"Cristiano Ronaldo",team:"Portugal",  flag:"🇵🇹",mp:2,g:3,a:1,yc:0,rc:0,min:180,xg:2.8,pass:82,kp:3,drb:4,rat:8.4},
+  {player:"Lionel Messi",     team:"Argentina", flag:"🇦🇷",mp:2,g:3,a:2,yc:0,rc:0,min:180,xg:2.5,pass:91,kp:6,drb:5,rat:9.1},
+  {player:"Kylian Mbappé",    team:"France",    flag:"🇫🇷",mp:2,g:2,a:1,yc:1,rc:0,min:174,xg:2.1,pass:87,kp:4,drb:8,rat:8.7},
+  {player:"Harry Kane",       team:"England",   flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",mp:2,g:2,a:0,yc:0,rc:0,min:180,xg:1.9,pass:78,kp:2,drb:1,rat:7.8},
+  {player:"Vinicius Jr",      team:"Brazil",    flag:"🇧🇷",mp:2,g:2,a:2,yc:1,rc:0,min:180,xg:1.7,pass:84,kp:5,drb:9,rat:8.3},
+  {player:"Pedri",            team:"Spain",     flag:"🇪🇸",mp:2,g:1,a:3,yc:0,rc:0,min:180,xg:0.8,pass:93,kp:7,drb:4,rat:8.6},
+  {player:"Jamal Musiala",    team:"Germany",   flag:"🇩🇪",mp:2,g:1,a:2,yc:0,rc:0,min:180,xg:1.2,pass:88,kp:5,drb:7,rat:8.4},
+  {player:"Xavi Simons",      team:"Netherlands",flag:"🇳🇱",mp:2,g:1,a:1,yc:0,rc:0,min:170,xg:0.9,pass:86,kp:4,drb:5,rat:7.9},
+];
+
+const TEAM_STATS = window.TEAM_STATS || [
+  {team:"Spain",    flag:"🇪🇸",mp:2,w:2,d:0,l:0,gf:5,ga:1,gd:4,pts:6,poss:68,shots:22,ont:14,xg:4.2,pass:92,tac:18,foul:14,yc:2,rc:0},
+  {team:"France",   flag:"🇫🇷",mp:2,w:2,d:0,l:0,gf:4,ga:1,gd:3,pts:6,poss:63,shots:19,ont:11,xg:3.8,pass:89,tac:22,foul:18,yc:3,rc:0},
+  {team:"Portugal", flag:"🇵🇹",mp:2,w:2,d:0,l:0,gf:6,ga:2,gd:4,pts:6,poss:58,shots:24,ont:15,xg:4.8,pass:85,tac:20,foul:16,yc:1,rc:0},
+  {team:"Argentina",flag:"🇦🇷",mp:2,w:1,d:1,l:0,gf:4,ga:2,gd:2,pts:4,poss:60,shots:18,ont:10,xg:3.5,pass:88,tac:24,foul:20,yc:2,rc:0},
+  {team:"Brazil",   flag:"🇧🇷",mp:2,w:1,d:1,l:0,gf:3,ga:1,gd:2,pts:4,poss:62,shots:20,ont:12,xg:3.1,pass:87,tac:19,foul:15,yc:1,rc:0},
+  {team:"England",  flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",mp:2,w:1,d:0,l:1,gf:3,ga:3,gd:0,pts:3,poss:54,shots:16,ont:8,xg:2.4,pass:82,tac:26,foul:22,yc:3,rc:0},
+  {team:"Germany",  flag:"🇩🇪",mp:2,w:1,d:0,l:1,gf:2,ga:3,gd:-1,pts:3,poss:56,shots:15,ont:7,xg:2.0,pass:83,tac:21,foul:19,yc:2,rc:0},
+  {team:"Netherlands",flag:"🇳🇱",mp:2,w:0,d:1,l:1,gf:2,ga:3,gd:-1,pts:1,poss:52,shots:14,ont:6,xg:1.8,pass:80,tac:25,foul:24,yc:4,rc:0},
+];
+
+// ── GOLDEN BOOT ───────────────────────────────────────────────────────────────
+function renderGoldenBoot(){
+  const maxGoals = Math.max(...SCORERS.map(s=>s.goals), 1);
+  const list     = document.getElementById("golden-boot-list");
+  const rankEmoji = ["🥇","🥈","🥉","4","5"];
+  list.innerHTML = SCORERS.map((s,i)=>`
+    <div class="boot-row">
+      <div class="boot-rank">${rankEmoji[i]}</div>
+      <div class="boot-info">
+        <div class="boot-player">${s.flag} ${s.player}</div>
+        <div class="boot-team">${s.team}</div>
+      </div>
+      <div class="boot-bar-wrap">
+        <div class="boot-bar" style="width:${(s.goals/maxGoals)*100}%"></div>
+      </div>
+      <div class="boot-goals">${s.goals}</div>
+    </div>
+  `).join("");
+}
+
+// ── PLAYER TABLE ──────────────────────────────────────────────────────────────
+function renderPlayerTable(){
+  const tbody = document.getElementById("player-tbody");
+  tbody.innerHTML = PLAYER_STATS.map(p=>`
+    <tr>
+      <td><strong>${p.flag} ${p.player}</strong></td>
+      <td>${p.team}</td>
+      <td>${p.mp}</td>
+      <td><strong style="color:var(--gold)">${p.g}</strong></td>
+      <td>${p.a}</td>
+      <td>${p.yc ? `<span class="tag tag-gold">${p.yc}</span>` : "0"}</td>
+      <td>${p.rc ? `<span class="tag tag-red">${p.rc}</span>` : "0"}</td>
+      <td>${p.min}'</td>
+      <td>${p.xg.toFixed(1)}</td>
+      <td>
+        <div class="pct-bar" style="width:${p.pass}%;background:var(--green)"></div>
+        ${p.pass}%
+      </td>
+      <td>${p.kp}</td>
+      <td>${p.drb}</td>
+      <td style="color:var(--gold)">${p.rat}</td>
+    </tr>
+  `).join("");
+}
+
+// ── TEAM TABLE ────────────────────────────────────────────────────────────────
+function renderTeamTable(){
+  const sorted = [...TEAM_STATS].sort((a,b)=>b.pts-a.pts||b.gd-a.gd);
+  const tbody  = document.getElementById("team-tbody");
+  tbody.innerHTML = sorted.map(t=>`
+    <tr>
+      <td><strong>${t.flag} ${t.team}</strong></td>
+      <td>${t.mp}</td>
+      <td style="color:var(--green)">${t.w}</td>
+      <td>${t.d}</td>
+      <td style="color:var(--red)">${t.l}</td>
+      <td>${t.gf}</td><td>${t.ga}</td>
+      <td style="color:${t.gd>=0?'var(--green)':'var(--red)'}">${t.gd>0?'+':''}${t.gd}</td>
+      <td><strong style="color:var(--gold)">${t.pts}</strong></td>
+      <td>${t.poss}%</td>
+      <td>${t.shots}</td><td>${t.ont}</td>
+      <td>${t.xg.toFixed(1)}</td>
+      <td>${t.pass}%</td>
+      <td>${t.tac}</td><td>${t.foul}</td>
+      <td>${t.yc ? `<span class="tag tag-gold">${t.yc}</span>` : "0"}</td>
+      <td>${t.rc ? `<span class="tag tag-red">${t.rc}</span>` : "0"}</td>
+    </tr>
+  `).join("");
+}
+
+// ── TOP CHARTS ────────────────────────────────────────────────────────────────
+const CHARTS = [
+  {title:"⚽ Top Scorers",    key:"g",    color:"var(--gold)"},
+  {title:"🎯 Top Assisters",  key:"a",    color:"var(--blue)"},
+  {title:"⭐ Best Ratings",   key:"rat",  color:"var(--orange)"},
+  {title:"📊 Most Key Passes",key:"kp",   color:"var(--green)"},
+  {title:"🏃 Top Dribblers",  key:"drb",  color:"#ff44ff"},
+  {title:"🟨 Yellow Cards",   key:"yc",   color:"var(--gold)"},
+];
+
+function renderCharts(){
+  const grid = document.getElementById("chart-grid");
+  grid.innerHTML = "";
+  CHARTS.forEach(ch => {
+    const sorted = [...PLAYER_STATS].sort((a,b)=>b[ch.key]-a[ch.key]).slice(0,5);
+    const max    = Math.max(...sorted.map(p=>p[ch.key]), 1);
+    const card   = document.createElement("div");
+    card.className = "chart-card";
+    card.innerHTML = `<h3>${ch.title}</h3>` + sorted.map((p,i)=>`
+      <div class="chart-row">
+        <div class="chart-rank">${i+1}</div>
+        <div class="chart-flag">${p.flag}</div>
+        <div style="flex:1">
+          <div class="chart-name">${p.player}</div>
+          <div class="chart-team">${p.team}</div>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar" style="width:${(p[ch.key]/max)*100}%;background:${ch.color}"></div>
+          </div>
+        </div>
+        <div class="chart-val" style="color:${ch.color}">${p[ch.key]}</div>
+      </div>
+    `).join("");
+    grid.appendChild(card);
+  });
+}
+
+// ── TAB SWITCHER ──────────────────────────────────────────────────────────────
+function showTab(name, btn){
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  ["players","teams","charts"].forEach(t=>{
+    document.getElementById(`tab-${t}`).style.display = t===name?"block":"none";
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderGoldenBoot();
+renderPlayerTable();
+renderTeamTable();
+renderCharts();
+</script>
+</body>
+</html>
