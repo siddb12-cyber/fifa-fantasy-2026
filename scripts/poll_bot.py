@@ -24,19 +24,6 @@ TEST_MODE = os.environ.get('TEST_MODE', 'true').lower() == 'true'
 FORCE       = os.environ.get('FORCE_SEND', 'false').lower() == 'true'   # bypass timing check
 FORCE_MATCH = os.environ.get('FORCE_MATCH', '').strip()               # specific match ID to force (e.g. T002)
 
-# ── PLAYER TELEGRAM ID MAPPING ─────────────────────────────────────────────────
-# Map each player's Telegram user_id → pet name. Add as they join the group.
-PLAYER_IDS = {
-    8331670846: 'Budhya',   # Sidhant
-    # Add others once they send /start in the group and you get their IDs:
-    # 123456789: 'Ambu',
-    # 987654321: 'Vini',
-    # 111111111: 'Baby',
-    # 222222222: 'Abs',
-    # 333333333: 'Anna',
-    # 444444444: 'Umaga',
-    # 555555555: 'PR',
-}
 PLAYERS_ALL = ['Budhya', 'Ambu', 'Vini', 'Baby', 'Abs', 'Anna', 'Umaga', 'PR']
 
 IST  = pytz.timezone('Asia/Kolkata')
@@ -224,6 +211,58 @@ def build_reminder(match, notif_type):
     return ''
 
 
+# ── PLAYER ID SHEET HELPERS ───────────────────────────────────────────────────
+def get_or_create_player_ids_sheet(gc):
+    """Return the 'Player IDs' worksheet, creating it if needed."""
+    sh = gc.open_by_key(SHEET_ID)
+    try:
+        return sh.worksheet('Player IDs')
+    except:
+        ws = sh.add_worksheet('Player IDs', rows=50, cols=4)
+        ws.append_row(['Telegram Name', 'User ID', 'Pet Name', 'Joined At'])
+        # Pre-seed Sidhant so existing votes still work
+        ws.append_row(['Sidhant', '8331670846', 'Budhya',
+                       datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')])
+        return ws
+
+
+def load_player_ids(gc):
+    """Load {user_id (int): pet_name} from 'Player IDs' sheet."""
+    if not gc:
+        return {}
+    try:
+        ws   = get_or_create_player_ids_sheet(gc)
+        rows = ws.get_all_records()
+        result = {}
+        for row in rows:
+            uid  = str(row.get('User ID', '')).strip()
+            name = str(row.get('Pet Name', '')).strip()
+            if uid.isdigit() and name:
+                result[int(uid)] = name
+        return result
+    except Exception as e:
+        print(f'  ⚠ load_player_ids failed: {e}')
+        return {}
+
+
+def log_new_member(gc, user_id, telegram_name):
+    """Log a new group member to 'Player IDs' sheet (Pet Name left blank for Sidhant to fill)."""
+    if not gc:
+        return
+    try:
+        ws   = get_or_create_player_ids_sheet(gc)
+        rows = ws.get_all_records()
+        # Don't duplicate
+        for row in rows:
+            if str(row.get('User ID', '')) == str(user_id):
+                return
+        ts = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
+        ws.append_row([telegram_name, str(user_id), '', ts])
+        print(f'  📋 New member logged: {telegram_name} (ID: {user_id}) — fill Pet Name in sheet')
+    except Exception as e:
+        print(f'  ⚠ log_new_member failed: {e}')
+
+
 # ── POLL ANSWER COLLECTION ────────────────────────────────────────────────────
 def get_update_offset(gc):
     """Get last processed Telegram update offset from Sheets (Bot Config tab)."""
@@ -264,22 +303,24 @@ def save_update_offset(gc, offset):
         print(f'  ⚠ save_update_offset failed: {e}')
 
 
-def collect_poll_answers(gc, match_lookup):
+def collect_updates(gc, match_lookup, player_ids):
     """
-    Fetch Telegram poll_answer updates and write votes to Poll Responses sheet.
-    match_lookup: {match_id: {team_a, team_b}} built from schedule file.
+    Process Telegram updates:
+      - new_chat_members → log to Player IDs sheet for Sidhant to map
+      - poll_answer      → record vote to Poll Responses sheet
+    player_ids: {user_id (int): pet_name} loaded from sheet.
     """
     if not gc or not TOKEN:
         return
 
-    offset   = get_update_offset(gc)
-    print(f'\n📥 Collecting poll answers (offset: {offset})...')
+    offset = get_update_offset(gc)
+    print(f'\n📥 Processing updates (offset: {offset})...')
 
     # Build poll_id → match_id map from Sent Log
     poll_map = {}
     try:
-        sh      = gc.open_by_key(SHEET_ID)
-        log_ws  = sh.worksheet('Sent Log')
+        sh     = gc.open_by_key(SHEET_ID)
+        log_ws = sh.worksheet('Sent Log')
         for row in log_ws.get_all_records():
             pid = str(row.get('Telegram Poll ID', '')).strip()
             mid = str(row.get('Match ID', '')).strip()
@@ -289,15 +330,15 @@ def collect_poll_answers(gc, match_lookup):
         print(f'  ⚠ Could not load Sent Log: {e}')
         return
 
-    if not poll_map:
-        print('  ℹ No polls in Sent Log yet — skipping.')
-        return
-
-    # Fetch updates
+    # Fetch both message (for joins) and poll_answer updates
     try:
         r = requests.get(
             f'{BASE}/getUpdates',
-            params={'offset': offset + 1, 'allowed_updates': '["poll_answer"]', 'timeout': 5},
+            params={
+                'offset':          offset + 1,
+                'allowed_updates': '["message","poll_answer"]',
+                'timeout':         5
+            },
             timeout=15
         )
         updates = r.json().get('result', [])
@@ -306,7 +347,7 @@ def collect_poll_answers(gc, match_lookup):
         return
 
     if not updates:
-        print('  ✅ No new poll answers.')
+        print('  ✅ No new updates.')
         return
 
     # Open / create Poll Responses sheet
@@ -319,7 +360,7 @@ def collect_poll_answers(gc, match_lookup):
 
     existing  = {f"{r['Match ID']}::{r['Player Name']}"
                  for r in resp_ws.get_all_records() if r.get('Match ID')}
-    new_count = 0
+    new_votes = 0
     max_uid   = offset
 
     for update in updates:
@@ -327,45 +368,57 @@ def collect_poll_answers(gc, match_lookup):
         if uid > max_uid:
             max_uid = uid
 
+        # ── Handle new members joining ────────────────────────────────────────
+        msg = update.get('message', {})
+        new_members = msg.get('new_chat_members', [])
+        for member in new_members:
+            if member.get('is_bot'):
+                continue  # skip bots joining
+            user_id  = member.get('id')
+            tg_name  = (member.get('first_name', '') + ' ' +
+                        member.get('last_name', '')).strip()
+            username = member.get('username', '')
+            display  = f"{tg_name} (@{username})" if username else tg_name
+            log_new_member(gc, user_id, display)
+
+        # ── Handle poll answers ───────────────────────────────────────────────
         pa = update.get('poll_answer')
         if not pa:
             continue
 
-        poll_id     = str(pa.get('poll_id', ''))
-        user_id     = pa.get('user', {}).get('id')
-        option_ids  = pa.get('option_ids', [])
-        option      = option_ids[0] if option_ids else None
+        poll_id    = str(pa.get('poll_id', ''))
+        user_id    = pa.get('user', {}).get('id')
+        option_ids = pa.get('option_ids', [])
+        option     = option_ids[0] if option_ids else None
 
-        player = PLAYER_IDS.get(user_id)
+        player = player_ids.get(user_id)
         if not player:
-            print(f'  ⚠ Unknown user_id {user_id} — add to PLAYER_IDS dict')
+            tg_name = pa.get('user', {}).get('first_name', str(user_id))
+            print(f'  ⚠ {tg_name} (ID: {user_id}) voted but has no Pet Name yet — fill in Player IDs sheet')
             continue
 
         match_id = poll_map.get(poll_id)
         if not match_id:
-            print(f'  ⚠ Unknown poll_id {poll_id}')
             continue
 
         key = f'{match_id}::{player}'
         if key in existing:
-            continue  # already recorded
+            continue
 
-        # Resolve option index → answer text using match teams
         info    = match_lookup.get(match_id, {})
         ta      = info.get('team_a', 'Team A')
         tb      = info.get('team_b', 'Team B')
         options = [f'{ta} wins', 'Draw', f'{tb} wins']
         answer  = options[option] if option is not None and option < 3 else 'Unknown'
 
-        match_name = f'{ta} vs {tb}'
-        ts         = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
-        resp_ws.append_row([match_id, match_name, player, answer, '', '', ts])
+        ts = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
+        resp_ws.append_row([match_id, f'{ta} vs {tb}', player, answer, '', '', ts])
         existing.add(key)
-        new_count += 1
+        new_votes += 1
         print(f'  ✅ {player} → {answer} ({match_id})')
 
     save_update_offset(gc, max_uid)
-    print(f'  ✅ {new_count} new answer(s) recorded. Offset saved: {max_uid}')
+    print(f'  ✅ {new_votes} vote(s) recorded. Offset saved: {max_uid}')
 
 
 # ── MAIN LOOP ─────────────────────────────────────────────────────────────────
@@ -384,8 +437,12 @@ def main():
 
     gc = connect_sheets()
 
-    # ── Step 1: Collect any pending poll answers from Telegram ─────────────────
-    collect_poll_answers(gc, match_lookup)
+    # ── Step 1: Load player ID mapping from sheet ───────────────────────────────
+    player_ids = load_player_ids(gc)
+    print(f'  👥 {len(player_ids)} player(s) mapped in sheet.')
+
+    # ── Step 2: Process updates (new joins + poll answers) ──────────────────────
+    collect_updates(gc, match_lookup, player_ids)
 
     # ── Step 2: Send scheduled polls / reminders ───────────────────────────────
     sent_log = get_sent_log(gc)
