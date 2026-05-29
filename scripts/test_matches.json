@@ -1,0 +1,38 @@
+[
+  {
+    "id": "T001",
+    "stage": "Test Match 1",
+    "datetime_ist": "30 May 2026 21:00",
+    "team_a": "Sidhant FC",
+    "team_b": "Jio United",
+    "venue": "The Living Room",
+    "city": "Mumbai"
+  },
+  {
+    "id": "T002",
+    "stage": "Test Match 2",
+    "datetime_ist": "31 May 2026 20:30",
+    "team_a": "Mumbai Bhai FC",
+    "team_b": "Delhi Dhamaka",
+    "venue": "WhatsApp Stadium",
+    "city": "Anywhere"
+  },
+  {
+    "id": "T003",
+    "stage": "Test Match 3",
+    "datetime_ist": "01 Jun 2026 21:00",
+    "team_a": "Chai United",
+    "team_b": "Coffee Athletic",
+    "venue": "The Office Pantry",
+    "city": "Everywhere"
+  },
+  {
+    "id": "T004",
+    "stage": "Test Final",
+    "datetime_ist": "02 Jun 2026 19:00",
+    "team_a": "Test FC Alpha",
+    "team_b": "Test FC Bravo",
+    "venue": "The Grand Test Arena",
+    "city": "Nowhere Real"
+  }
+]

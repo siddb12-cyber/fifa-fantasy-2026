@@ -1,0 +1,46 @@
+name: FIFA Fantasy — Stats Auto-Updater
+
+on:
+  schedule:
+    # Runs every 2 hours during tournament (Jun 11 – Jul 24 2026)
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests gspread google-auth pytz
+
+      - name: Fetch live stats from football-data.org
+        env:
+          FOOTBALL_API_KEY:        ${{ secrets.FOOTBALL_API_KEY }}
+          GOOGLE_SHEET_ID:         ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: python scripts/stats_fetcher.py
+
+      - name: Rebuild dashboard HTML from Sheets
+        env:
+          GOOGLE_SHEET_ID:         ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          GH_TOKEN:                ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/dashboard_builder.py
+
+      - name: Push updated dashboard to GitHub Pages
+        run: |
+          git config user.name  "FIFA Fantasy Bot"
+          git config user.email "bot@fifa-fantasy-2026.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Auto: stats update $(date '+%Y-%m-%d %H:%M IST')"
+          git push

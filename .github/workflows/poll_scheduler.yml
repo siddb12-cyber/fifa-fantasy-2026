@@ -1,0 +1,42 @@
+name: FIFA Fantasy — Poll Scheduler
+
+on:
+  schedule:
+    # Runs every 30 minutes, 24/7 — GitHub's servers, no machine needed
+    - cron: '0,30 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Test mode? (uses test_matches.json)'
+        type: boolean
+        default: true
+      force_notif:
+        description: 'Force notification type (poll/r6h/r3h/r90m) — leave blank for auto'
+        type: string
+        default: ''
+
+jobs:
+  send-polls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests gspread google-auth pytz
+
+      - name: Run Poll Bot
+        env:
+          TELEGRAM_TOKEN:          ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:        ${{ secrets.TELEGRAM_CHAT_ID }}
+          GOOGLE_SHEET_ID:         ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          TEST_MODE:               ${{ github.event.inputs.test_mode || 'true' }}
+        run: python scripts/poll_bot.py

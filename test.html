@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Test Dashboard · FIFA Fantasy 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06060f;--glass:rgba(255,255,255,0.04);--glass-b:rgba(255,255,255,0.08);
+  --text:#f1f5f9;--muted:#64748b;--accent:#f59e0b;
+  --purple:#8b5cf6;--cyan:#06b6d4;--emerald:#10b981;--red:#ef4444;
+  --gold:#fbbf24;--silver:#94a3b8;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+.aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(100px);opacity:.28;animation:drift 25s infinite ease-in-out}
+.b1{width:600px;height:600px;background:var(--purple);top:-200px;left:-150px}
+.b2{width:500px;height:500px;background:var(--cyan);top:-100px;right:-100px;animation-delay:-9s}
+.b3{width:700px;height:700px;background:#059669;bottom:-300px;left:30%;animation-delay:-18s}
+@keyframes drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(30px,-40px) scale(1.06)}}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:16px 48px;background:rgba(6,6,15,.75);backdrop-filter:blur(24px);border-bottom:1px solid var(--glass-b)}
+.logo{font-weight:900;font-size:17px;text-decoration:none;color:var(--text)}
+.logo em{font-style:normal;color:var(--accent)}
+.nav-badge{padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.nav-back{color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;transition:all .2s}
+.nav-back:hover{color:var(--text);background:var(--glass)}
+
+.page{position:relative;z-index:1;padding-top:90px}
+.wrap{max-width:900px;margin:0 auto;padding:0 24px 80px}
+
+/* HERO */
+.hero{text-align:center;padding:60px 24px 48px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:4px;font-weight:700;color:var(--red);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);padding:6px 16px;border-radius:99px;margin-bottom:20px}
+.hero h1{font-size:clamp(40px,8vw,80px);font-weight:900;letter-spacing:-3px;line-height:.92;margin-bottom:10px}
+.grad{background:linear-gradient(135deg,var(--red) 0%,var(--accent) 50%,var(--gold) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{color:var(--muted);font-size:15px}
+
+/* SEC HEADER */
+.sec-hd{font-size:10px;letter-spacing:4px;font-weight:700;color:var(--muted);margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.sec-hd::after{content:'';flex:1;height:1px;background:var(--glass-b)}
+.section{padding:16px 0 40px}
+
+/* PODIUM */
+.podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:16px;align-items:end;margin-bottom:32px;max-width:600px;margin-left:auto;margin-right:auto}
+.pod{border-radius:24px;padding:28px 18px 24px;text-align:center;border:1px solid var(--glass-b);backdrop-filter:blur(20px);transition:transform .3s;cursor:default}
+.pod:hover{transform:translateY(-6px)}
+.pod.p1{background:linear-gradient(160deg,rgba(251,191,36,.12),rgba(245,158,11,.03));border-color:rgba(251,191,36,.3);padding-top:36px}
+.pod.p2{background:var(--glass)}
+.pod-badge{font-size:28px;margin-bottom:10px;display:block}
+.pod-name{font-size:18px;font-weight:800;margin-bottom:6px}
+.pod-pts{font-size:48px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--accent);line-height:1}
+.pod-lbl{font-size:9px;letter-spacing:3px;color:var(--muted);margin-top:2px}
+
+/* LEADERBOARD */
+.lb-list{display:flex;flex-direction:column;gap:6px}
+.lb-row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:12px;padding:16px 20px;border-radius:16px;border:1px solid transparent;transition:all .2s;cursor:default}
+.lb-row:hover{background:rgba(255,255,255,.04);border-color:var(--glass-b)}
+.lb-rk{font-size:20px;font-weight:900;text-align:center;color:var(--muted)}
+.lb-rk.r1{color:var(--gold)}
+.lb-name{font-size:16px;font-weight:700}
+.lb-full{font-size:12px;color:var(--muted);margin-top:2px}
+.lb-chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.chip{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:99px;font-size:12px;font-weight:700}
+.c-pts{background:rgba(251,191,36,.1);color:var(--gold);font-size:18px;min-width:52px;justify-content:center}
+.c-ok{background:rgba(16,185,129,.12);color:var(--emerald)}
+.c-bad{background:rgba(239,68,68,.12);color:var(--red)}
+.c-miss{background:rgba(100,116,139,.12);color:var(--muted)}
+
+/* TEST SCHEDULE */
+.match-list{display:flex;flex-direction:column;gap:8px}
+.match-card{display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:16px;background:var(--glass);border:1px solid var(--glass-b);backdrop-filter:blur(12px);transition:all .2s}
+.match-card:hover{background:rgba(255,255,255,.06);transform:translateX(4px)}
+.match-id{font-size:10px;color:var(--muted);font-weight:700;min-width:36px}
+.match-teams{flex:1;font-size:15px;font-weight:700}
+.match-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.match-time{text-align:right}
+.match-date{font-size:13px;font-weight:700}
+.match-ist{font-size:11px;color:var(--cyan)}
+.match-cd{font-size:10px;color:var(--accent);margin-top:2px;font-variant-numeric:tabular-nums}
+.status-pill{padding:4px 10px;border-radius:99px;font-size:10px;font-weight:700;background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.2);color:var(--cyan);white-space:nowrap}
+
+/* SCORING LEGEND */
+.legend{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;background:var(--glass);border:1px solid var(--glass-b);border-radius:20px;padding:18px 28px;margin-bottom:20px}
+.leg-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.leg-badge{font-weight:800;font-size:14px}
+.leg-badge.ok{color:var(--emerald)}
+.leg-badge.bad{color:var(--red)}
+.leg-badge.miss{color:#f97316}
+
+@media(max-width:640px){nav{padding:14px 20px}.podium{grid-template-columns:1fr;max-width:300px}.pod.p1{order:-1}.lb-chips{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div class="aurora">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
+
+<nav>
+  <a class="logo" href="index.html">⚽ <em>FIFA</em> FANTASY</a>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nav-badge">🧪 TEST MODE</span>
+    <a class="nav-back" href="index.html">← Main Dashboard</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="hero">
+    <div class="eyebrow">🧪 DUMMY TEST · 2 PLAYERS · 4 MATCHES</div>
+    <h1>TEST<br><span class="grad">RUN</span></h1>
+    <p class="hero-sub">May 30 – June 2, 2026 · Validating the full automation pipeline</p>
+  </div>
+
+  <div class="wrap">
+    <div class="section">
+      <div class="sec-hd">STANDINGS</div>
+      <div class="podium" id="podium"></div>
+      <div class="lb-list" id="lb"></div>
+    </div>
+
+    <div class="section">
+      <div class="sec-hd">TEST SCHEDULE</div>
+      <div class="match-list" id="matches"></div>
+    </div>
+
+    <div class="legend">
+      <div class="leg-item"><span class="leg-badge ok">+3</span> Correct prediction</div>
+      <div class="leg-item"><span class="leg-badge bad">0</span> Wrong prediction</div>
+      <div class="leg-item"><span class="leg-badge miss">−2</span> No answer</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PLAYERS = window.TEST_LEADERBOARD || [
+  {rank:1,player:"Sidhant",full:"Sidhant Budhkar",pts:0,correct:0,wrong:0,missed:0},
+  {rank:2,player:"Jio",    full:"Sidhant (Jio)",  pts:0,correct:0,wrong:0,missed:0},
+];
+
+const MATCHES = [
+  {id:"T001",stage:"Test Match 1",datetime_ist:"30 May 2026 21:00",team_a:"Sidhant FC",team_b:"Jio United"},
+  {id:"T002",stage:"Test Match 2",datetime_ist:"31 May 2026 20:30",team_a:"Mumbai Bhai FC",team_b:"Delhi Dhamaka"},
+  {id:"T003",stage:"Test Match 3",datetime_ist:"01 Jun 2026 21:00",team_a:"Chai United",team_b:"Coffee Athletic"},
+  {id:"T004",stage:"Test Final",  datetime_ist:"02 Jun 2026 19:00",team_a:"Test FC Alpha",team_b:"Test FC Bravo"},
+];
+
+function parseIST(s) {
+  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  const [d,mo,y,t] = s.split(' ');
+  const [h,m] = t.split(':');
+  // Convert IST (UTC+5:30) to UTC for JS Date
+  const utcMs = Date.UTC(parseInt(y), months[mo], parseInt(d), parseInt(h)-5, parseInt(m)-30);
+  return new Date(utcMs);
+}
+
+// Podium
+function buildPodium() {
+  const sorted = [...PLAYERS].sort((a,b) => b.pts - a.pts);
+  const top2 = sorted.slice(0,2);
+  const cfg = [{badge:'🥈',cls:'p2'},{badge:'👑',cls:'p1'}];
+  // For 2 players: show winner in p1 centre, second in p2 side
+  document.getElementById('podium').innerHTML = `
+    <div></div>
+    <div class="pod ${cfg[1].cls}">
+      <span class="pod-badge">${cfg[1].badge}</span>
+      <div class="pod-name">${top2[0]?.player||'—'}</div>
+      <div class="pod-pts">${top2[0]?.pts||0}</div>
+      <div class="pod-lbl">POINTS</div>
+    </div>
+    <div class="pod ${cfg[0].cls}">
+      <span class="pod-badge">${cfg[0].badge}</span>
+      <div class="pod-name">${top2[1]?.player||'—'}</div>
+      <div class="pod-pts">${top2[1]?.pts||0}</div>
+      <div class="pod-lbl">POINTS</div>
+    </div>`;
+}
+
+// Leaderboard
+function buildLB() {
+  const rkCls = {1:'r1',2:''};
+  document.getElementById('lb').innerHTML = PLAYERS.map(p => `
+    <div class="lb-row">
+      <div class="lb-rk ${rkCls[p.rank]||''}">${p.rank}</div>
+      <div>
+        <div class="lb-name">${p.player}</div>
+        <div class="lb-full">${p.full}</div>
+      </div>
+      <div class="lb-chips">
+        <span class="chip c-pts">${p.pts}</span>
+        <span class="chip c-ok">✓ ${p.correct}</span>
+        <span class="chip c-bad">✗ ${p.wrong}</span>
+        <span class="chip c-miss">⊘ ${p.missed}</span>
+      </div>
+    </div>`).join('');
+}
+
+// Matches
+function buildMatches() {
+  document.getElementById('matches').innerHTML = MATCHES.map(m => {
+    const target = parseIST(m.datetime_ist);
+    const diff = target - new Date();
+    const days = Math.floor(diff/86400000);
+    const hrs  = Math.floor(diff%86400000/3600000);
+    const mins = Math.floor(diff%3600000/60000);
+    let cd = diff>0 ? (days>0?`in ${days}d ${hrs}h`:`in ${hrs}h ${mins}m`) : '🔴 LIVE / FT';
+
+    const [day,mo,yr,time] = m.datetime_ist.split(' ');
+    return `
+    <div class="match-card">
+      <div class="match-id">${m.id}</div>
+      <div>
+        <div class="match-teams">${m.team_a}  vs  ${m.team_b}</div>
+        <div class="match-sub">${m.stage}</div>
+      </div>
+      <div class="match-time">
+        <div class="match-date">${day} ${mo}</div>
+        <div class="match-ist">${time} IST</div>
+        <div class="match-cd" id="cd-${m.id}">${cd}</div>
+      </div>
+      <span class="status-pill">📅 Upcoming</span>
+    </div>`;
+  }).join('');
+}
+
+buildPodium();
+buildLB();
+buildMatches();
+
+// Live countdowns
+setInterval(() => {
+  MATCHES.forEach(m => {
+    const el = document.getElementById('cd-'+m.id);
+    if (!el) return;
+    const diff = parseIST(m.datetime_ist) - new Date();
+    const d=Math.floor(diff/86400000),h=Math.floor(diff%86400000/3600000),mn=Math.floor(diff%3600000/60000);
+    el.textContent = diff>0 ? (d>0?`in ${d}d ${h}h`:`in ${h}h ${mn}m`) : '🔴 LIVE / FT';
+  });
+}, 30000);
+</script>
+</body>
+</html>
