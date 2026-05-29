@@ -287,13 +287,13 @@ table.match-log tr:hover td{background:rgba(245,158,11,.03)}
   </div>
 
   <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('fantasy')">🎯 The Tracker</button>
-    <button class="tab-btn" onclick="switchTab('golden-boot')">👟 Golden Boot</button>
-    <button class="tab-btn" onclick="switchTab('golden-glove')">🧤 Golden Glove</button>
-    <button class="tab-btn" onclick="switchTab('playmaker')">🎩 The Playmaker</button>
-    <button class="tab-btn" onclick="switchTab('teams')">🛡️ Team Form</button>
-    <button class="tab-btn" onclick="switchTab('match-log')">📋 Match Reel</button>
-    <button class="tab-btn" onclick="switchTab('compare')">⚖️ Face-Off</button>
+    <button class="tab-btn active" data-tab="fantasy" onclick="switchTab(this)">🎯 The Tracker</button>
+    <button class="tab-btn" data-tab="golden-boot" onclick="switchTab(this)">👟 Golden Boot</button>
+    <button class="tab-btn" data-tab="golden-glove" onclick="switchTab(this)">🧤 Golden Glove</button>
+    <button class="tab-btn" data-tab="playmaker" onclick="switchTab(this)">🎩 The Playmaker</button>
+    <button class="tab-btn" data-tab="teams" onclick="switchTab(this)">🛡️ Team Form</button>
+    <button class="tab-btn" data-tab="match-log" onclick="switchTab(this)">📋 Match Reel</button>
+    <button class="tab-btn" data-tab="compare" onclick="switchTab(this)">⚖️ Face-Off</button>
   </div>
 
   <div class="container">
@@ -468,13 +468,18 @@ const TEAM_STATS = window.TEAM_STATS || [
 const MATCH_LOG = window.MATCH_LOG || [];
 
 // ── TAB SWITCH ────────────────────────────────────────────────────────────────
-const TAB_IDS = ['fantasy','golden-boot','golden-glove','playmaker','teams','match-log','compare'];
-function switchTab(id){
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
-    b.classList.toggle('active', TAB_IDS[i]===id);
-  });
-  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-  document.getElementById('tab-'+id).classList.add('active');
+function switchTab(btn){
+  var id = btn.getAttribute('data-tab');
+  var btns = document.querySelectorAll('.tab-btn');
+  for(var i=0;i<btns.length;i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  var panels = document.querySelectorAll('.tab-panel');
+  for(var j=0;j<panels.length;j++) panels[j].classList.remove('active');
+  var panel = document.getElementById('tab-'+id);
+  if(panel){
+    panel.classList.add('active');
+    panel.scrollIntoView({behavior:'smooth',block:'start'});
+  }
 }
 
 // ── FANTASY TRACKER ───────────────────────────────────────────────────────────
@@ -606,11 +611,64 @@ function buildMatchLog(){
   const tbody = document.getElementById('match-log-body');
   const empty = document.getElementById('match-log-empty');
   if(!MATCH_LOG.length){
-    document.querySelector('.match-log-wrap').style.display='none';
-    empty.style.display='block'; return;
+    var wrap = document.querySelector('.match-log-wrap');
+    if(wrap) wrap.style.display='none';
+    if(empty) empty.style.display='block';
+    return;
   }
   empty.style.display='none';
   const players = ['Budhya','Ambu','Vini','Baby','Abs','Anna','Umaga','PR'];
   tbody.innerHTML = MATCH_LOG.map(m=>{
     const ptsHtml = players.map(p=>{
-      const pp = m.playerPoints?.
+      const pp = m.playerPoints?.find(x=>x.player===p);
+      if(!pp) return '<td>—</td>';
+      const col = pp.pts>0?'var(--emerald)':pp.pts<0?'var(--red)':'var(--muted)';
+      const ansCls = pp.pts>0?'correct':pp.ans==='MISSED'?'missed':'wrong';
+      return `<td><span style="color:${col};font-weight:700">${pp.pts>0?'+':''}${pp.pts}</span><br>
+              <span class="pill ${ansCls}">${pp.ans}</span></td>`;
+    }).join('');
+    return `<tr>
+      <td><strong>${m.id}</strong></td>
+      <td>${m.flagA||''} ${m.teamA} vs ${m.teamB} ${m.flagB||''}</td>
+      <td><strong>${m.scoreA}–${m.scoreB}</strong></td>
+      ${ptsHtml}
+    </tr>`;
+  }).join('');
+}
+
+// ── FACE-OFF ──────────────────────────────────────────────────────────────────
+function updateCompare(){
+  const ai = parseInt(document.getElementById('cmp-a').value);
+  const bi = parseInt(document.getElementById('cmp-b').value);
+  const a = LEADERBOARD[ai], b = LEADERBOARD[bi];
+  const metrics = [
+    {label:'Points',  va:a.pts,     vb:b.pts,     max:Math.max(Math.abs(a.pts),Math.abs(b.pts),1)},
+    {label:'Correct', va:a.correct, vb:b.correct,  max:Math.max(a.correct,b.correct,1)},
+    {label:'Wrong',   va:a.wrong,   vb:b.wrong,    max:Math.max(a.wrong,b.wrong,1)},
+    {label:'Missed',  va:a.missed,  vb:b.missed,   max:Math.max(a.missed,b.missed,1)},
+  ];
+  document.getElementById('cmp-legend').innerHTML = `
+    <div class="legend-item"><div class="legend-dot a"></div>${a.player}</div>
+    <div class="legend-item"><div class="legend-dot b"></div>${b.player}</div>`;
+  document.getElementById('cmp-bars').innerHTML = metrics.map(m=>`
+    <div class="cmp-row">
+      <div class="cmp-label">${m.label}</div>
+      <div class="cmp-bar-wrap">
+        <div class="cmp-bar-a" style="width:${Math.max(0,m.va/m.max*100)}%"></div>
+        <div class="cmp-bar-b" style="width:${Math.max(0,m.vb/m.max*100)}%"></div>
+      </div>
+      <div class="cmp-val">${m.va} / ${m.vb}</div>
+    </div>`).join('');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+buildFantasyGrid();
+buildGoldenBoot();
+buildGoldenGlove();
+buildPlaymaker();
+buildTeamStats();
+buildMatchLog();
+updateCompare();
+</script>
+</body>
+</html>
