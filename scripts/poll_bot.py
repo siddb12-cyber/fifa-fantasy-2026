@@ -21,7 +21,8 @@ CHAT_ID   = os.environ.get('TELEGRAM_CHAT_ID', '')
 SHEET_ID  = os.environ.get('GOOGLE_SHEET_ID', '')
 GCP_CREDS = os.environ.get('GOOGLE_CREDENTIALS_JSON', '')   # base64-encoded JSON
 TEST_MODE = os.environ.get('TEST_MODE', 'true').lower() == 'true'
-FORCE     = os.environ.get('FORCE_SEND', 'false').lower() == 'true'  # bypass timing check
+FORCE       = os.environ.get('FORCE_SEND', 'false').lower() == 'true'   # bypass timing check
+FORCE_MATCH = os.environ.get('FORCE_MATCH', '').strip()               # specific match ID to force (e.g. T002)
 
 # ── PLAYER TELEGRAM ID MAPPING ─────────────────────────────────────────────────
 # Map each player's Telegram user_id → pet name. Add as they join the group.
@@ -416,7 +417,9 @@ def main():
 
             # Are we inside the 30-min window? OR force-sending the first match's poll
             in_window = threshold - WINDOW < diff_min <= threshold
-            force_this = FORCE and match == matches[0] and notif_type == 'poll'
+            # Force: if FORCE_MATCH specified, target that match; else default to first match
+            target_id  = FORCE_MATCH if FORCE_MATCH else matches[0]['id']
+            force_this = FORCE and match['id'] == target_id and notif_type == 'poll'
 
             if not in_window and not force_this:
                 continue
