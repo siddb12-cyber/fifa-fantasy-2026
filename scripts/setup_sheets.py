@@ -6,27 +6,36 @@ Run once. Uses credentials at C:/Users/siddh/Downloads/HK/FIFA/google_credential
 
 import gspread
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
 from datetime import datetime
 import json
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
-CREDS_PATH = r"C:\Users\siddh\Downloads\HK\FIFA\google_credentials.json"
-SHEET_NAME = "FIFA World Cup 2026"
+CREDS_PATH       = r"C:\Users\siddh\Downloads\HK\FIFA\google_credentials.json"
+SHEET_NAME       = "FIFA World Cup 2026"
+USER_EMAIL       = "siddb12@gmail.com"
+# Sheet already exists — paste its ID here so we skip Drive create entirely
+EXISTING_SHEET_ID = "18SfYYXYaGxvh-2bZIq_h4dOXfS7YtD5c49nW454MY2o"
+
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
+# Sheets-only scopes (fallback if Drive API not enabled)
+SHEETS_ONLY_SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+]
 
 # ── PLAYERS ────────────────────────────────────────────────────────────────────
 PLAYERS = [
-    {"pet": "Budhya", "full": "Sidhant Budhkar",  "team": "Portugal",    "jersey": 7,  "star": "Cristiano Ronaldo"},
-    {"pet": "Ambu",   "full": "Kushal Ambulkar",   "team": "Argentina",   "jersey": 10, "star": "Lionel Messi"},
-    {"pet": "Vini",   "full": "Vineet Nayak",      "team": "England",     "jersey": 9,  "star": "Harry Kane"},
-    {"pet": "Baby",   "full": "Susmit Gulavani",   "team": "Spain",       "jersey": 8,  "star": "Pedri"},
-    {"pet": "Abs",    "full": "Abhishek Desai",    "team": "Germany",     "jersey": 8,  "star": "Jamal Musiala"},
-    {"pet": "Anna",   "full": "Nishant Salian",    "team": "France",      "jersey": 10, "star": "Kylian Mbappé"},
-    {"pet": "Umaga",  "full": "Umang Budhkar",     "team": "Brazil",      "jersey": 10, "star": "Vinicius Jr."},
-    {"pet": "PR",     "full": "Pranav Raut",       "team": "Netherlands", "jersey": 11, "star": "Xavi Simons"},
+    {"pet": "Budhya", "full": "Sidhant Budhkar"},
+    {"pet": "Ambu",   "full": "Kushal Ambulkar"},
+    {"pet": "Vini",   "full": "Vineet Nayak"},
+    {"pet": "Baby",   "full": "Susmit Gulavani"},
+    {"pet": "Abs",    "full": "Abhishek Desai"},
+    {"pet": "Anna",   "full": "Nishant Salian"},
+    {"pet": "Umaga",  "full": "Umang Budhkar"},
+    {"pet": "PR",     "full": "Pranav Raut"},
 ]
 
 # ── FULL FIFA 2026 SCHEDULE (IST = UTC+5:30) ───────────────────────────────────
@@ -34,101 +43,101 @@ PLAYERS = [
 # Official FIFA 2026 schedule — all 104 matches
 SCHEDULE = [
     # ── GROUP STAGE ─────────────────────────────────────────────────────────────
-    # Group A
-    ["M001","Group A","12 Jun 2026 04:30","Mexico","??","Estadio Azteca","Mexico City"],
-    ["M002","Group A","13 Jun 2026 01:30","USA","??","SoFi Stadium","Los Angeles"],
-    ["M003","Group A","16 Jun 2026 04:00","Mexico","??","Estadio Azteca","Mexico City"],
-    ["M004","Group A","17 Jun 2026 01:00","USA","??","AT&T Stadium","Dallas"],
-    ["M005","Group A","20 Jun 2026 04:00","??","??","Estadio Azteca","Mexico City"],
-    ["M006","Group A","21 Jun 2026 01:00","??","??","SoFi Stadium","Los Angeles"],
+    # Group A: Mexico, S. Africa, South Korea, Czechia
+    ["M001","Group A","11 Jun 2026 01:30","Mexico","S. Africa","SoFi Stadium","Los Angeles"],
+    ["M002","Group A","11 Jun 2026 04:00","South Korea","Czechia","AT&T Stadium","Dallas"],
+    ["M003","Group A","15 Jun 2026 01:30","Mexico","Czechia","Rose Bowl","Los Angeles"],
+    ["M004","Group A","15 Jun 2026 04:00","S. Africa","South Korea","NRG Stadium","Houston"],
+    ["M005","Group A","19 Jun 2026 00:00","Czechia","S. Africa","Estadio Azteca","Mexico City"],
+    ["M006","Group A","19 Jun 2026 00:00","South Korea","Mexico","Gillette Stadium","Boston"],
 
-    # Group B
-    ["M007","Group B","12 Jun 2026 22:30","Argentina","??","MetLife Stadium","New York/NJ"],
-    ["M008","Group B","13 Jun 2026 04:30","??","??","Hard Rock Stadium","Miami"],
-    ["M009","Group B","16 Jun 2026 22:30","Argentina","??","MetLife Stadium","New York/NJ"],
-    ["M010","Group B","17 Jun 2026 04:30","??","??","Hard Rock Stadium","Miami"],
-    ["M011","Group B","20 Jun 2026 22:30","??","??","MetLife Stadium","New York/NJ"],
-    ["M012","Group B","21 Jun 2026 04:30","??","??","Hard Rock Stadium","Miami"],
+    # Group B: Canada, Bosnia-Herz., Qatar, Switzerland
+    ["M007","Group B","12 Jun 2026 01:30","Canada","Bosnia-Herz.","BMO Field","Toronto"],
+    ["M008","Group B","12 Jun 2026 04:00","Qatar","Switzerland","BC Place","Vancouver"],
+    ["M009","Group B","16 Jun 2026 01:30","Canada","Qatar","BMO Field","Toronto"],
+    ["M010","Group B","16 Jun 2026 04:00","Bosnia-Herz.","Switzerland","Levi's Stadium","San Jose"],
+    ["M011","Group B","20 Jun 2026 00:00","Switzerland","Canada","Estadio BBVA","Monterrey"],
+    ["M012","Group B","20 Jun 2026 00:00","Bosnia-Herz.","Qatar","Hard Rock Stadium","Miami"],
 
-    # Group C
-    ["M013","Group C","13 Jun 2026 22:30","France","??","Levi's Stadium","San Francisco"],
-    ["M014","Group C","14 Jun 2026 04:30","??","??","Allegiant Stadium","Las Vegas"],
-    ["M015","Group C","17 Jun 2026 22:30","France","??","Levi's Stadium","San Francisco"],
-    ["M016","Group C","18 Jun 2026 04:30","??","??","Allegiant Stadium","Las Vegas"],
-    ["M017","Group C","21 Jun 2026 22:30","??","??","Levi's Stadium","San Francisco"],
-    ["M018","Group C","22 Jun 2026 04:30","??","??","Allegiant Stadium","Las Vegas"],
+    # Group C: Brazil ⭐, Morocco, Haiti, Scotland
+    ["M013","Group C","12 Jun 2026 04:30","Brazil","Morocco","MetLife Stadium","New York"],
+    ["M014","Group C","13 Jun 2026 01:30","Haiti","Scotland","Arrowhead Stadium","Kansas City"],
+    ["M015","Group C","17 Jun 2026 01:30","Brazil","Haiti","Lincoln Financial Field","Philadelphia"],
+    ["M016","Group C","17 Jun 2026 04:00","Scotland","Morocco","Rose Bowl","Los Angeles"],
+    ["M017","Group C","21 Jun 2026 00:00","Morocco","Haiti","Hard Rock Stadium","Miami"],
+    ["M018","Group C","21 Jun 2026 00:00","Scotland","Brazil","AT&T Stadium","Dallas"],
 
-    # Group D
-    ["M019","Group D","14 Jun 2026 01:30","England","??","Lincoln Financial Field","Philadelphia"],
-    ["M020","Group D","14 Jun 2026 22:30","??","??","Gillette Stadium","Boston"],
-    ["M021","Group D","18 Jun 2026 01:30","England","??","Lincoln Financial Field","Philadelphia"],
-    ["M022","Group D","18 Jun 2026 22:30","??","??","Gillette Stadium","Boston"],
-    ["M023","Group D","22 Jun 2026 01:30","??","??","Lincoln Financial Field","Philadelphia"],
-    ["M024","Group D","22 Jun 2026 22:30","??","??","Gillette Stadium","Boston"],
+    # Group D: USA, Paraguay, Australia, Türkiye
+    ["M019","Group D","12 Jun 2026 22:30","USA","Paraguay","SoFi Stadium","Los Angeles"],
+    ["M020","Group D","13 Jun 2026 04:00","Australia","Türkiye","Levi's Stadium","San Jose"],
+    ["M021","Group D","17 Jun 2026 22:30","USA","Australia","Rose Bowl","Los Angeles"],
+    ["M022","Group D","17 Jun 2026 04:30","Türkiye","Paraguay","Gillette Stadium","Boston"],
+    ["M023","Group D","22 Jun 2026 00:00","Paraguay","Australia","NRG Stadium","Houston"],
+    ["M024","Group D","22 Jun 2026 00:00","Türkiye","USA","AT&T Stadium","Dallas"],
 
-    # Group E
-    ["M025","Group E","15 Jun 2026 01:30","Spain","??","AT&T Stadium","Dallas"],
-    ["M026","Group E","15 Jun 2026 04:30","??","??","Arrowhead Stadium","Kansas City"],
-    ["M027","Group E","19 Jun 2026 01:30","Spain","??","AT&T Stadium","Dallas"],
-    ["M028","Group E","19 Jun 2026 04:30","??","??","Arrowhead Stadium","Kansas City"],
-    ["M029","Group E","23 Jun 2026 01:30","??","??","AT&T Stadium","Dallas"],
-    ["M030","Group E","23 Jun 2026 04:30","??","??","Arrowhead Stadium","Kansas City"],
+    # Group E: Germany ⭐, Curaçao, Ivory Coast, Ecuador
+    ["M025","Group E","13 Jun 2026 01:30","Germany","Curaçao","MetLife Stadium","New York"],
+    ["M026","Group E","13 Jun 2026 22:30","Ivory Coast","Ecuador","Estadio BBVA","Monterrey"],
+    ["M027","Group E","17 Jun 2026 22:30","Germany","Ivory Coast","SoFi Stadium","Los Angeles"],
+    ["M028","Group E","18 Jun 2026 01:30","Ecuador","Curaçao","Lincoln Financial Field","Philadelphia"],
+    ["M029","Group E","22 Jun 2026 04:00","Curaçao","Ivory Coast","Levi's Stadium","San Jose"],
+    ["M030","Group E","22 Jun 2026 04:00","Ecuador","Germany","BC Place","Vancouver"],
 
-    # Group F
-    ["M031","Group F","15 Jun 2026 22:30","Brazil","??","SoFi Stadium","Los Angeles"],
-    ["M032","Group F","16 Jun 2026 01:30","??","??","Rose Bowl","Pasadena"],
-    ["M033","Group F","19 Jun 2026 22:30","Brazil","??","SoFi Stadium","Los Angeles"],
-    ["M034","Group F","20 Jun 2026 01:30","??","??","Rose Bowl","Pasadena"],
-    ["M035","Group F","23 Jun 2026 22:30","??","??","SoFi Stadium","Los Angeles"],
-    ["M036","Group F","24 Jun 2026 01:30","??","??","Rose Bowl","Pasadena"],
+    # Group F: Netherlands ⭐, Japan, Sweden, Tunisia
+    ["M031","Group F","13 Jun 2026 04:00","Netherlands","Japan","Arrowhead Stadium","Kansas City"],
+    ["M032","Group F","13 Jun 2026 22:30","Sweden","Tunisia","BMO Field","Toronto"],
+    ["M033","Group F","18 Jun 2026 01:30","Netherlands","Sweden","Gillette Stadium","Boston"],
+    ["M034","Group F","18 Jun 2026 22:30","Tunisia","Japan","AT&T Stadium","Dallas"],
+    ["M035","Group F","23 Jun 2026 00:00","Japan","Sweden","NRG Stadium","Houston"],
+    ["M036","Group F","23 Jun 2026 00:00","Tunisia","Netherlands","Hard Rock Stadium","Miami"],
 
-    # Group G
-    ["M037","Group G","16 Jun 2026 22:30","Germany","??","Lincoln Financial Field","Philadelphia"],
-    ["M038","Group G","17 Jun 2026 04:00","??","??","BC Place","Vancouver"],
-    ["M039","Group G","20 Jun 2026 22:30","Germany","??","Lincoln Financial Field","Philadelphia"],
-    ["M040","Group G","21 Jun 2026 04:00","??","??","BC Place","Vancouver"],
-    ["M041","Group G","24 Jun 2026 22:30","??","??","Lincoln Financial Field","Philadelphia"],
-    ["M042","Group G","25 Jun 2026 04:00","??","??","BC Place","Vancouver"],
+    # Group G: Belgium, Egypt, Iran, New Zealand
+    ["M037","Group G","14 Jun 2026 01:30","Belgium","Egypt","SoFi Stadium","Los Angeles"],
+    ["M038","Group G","14 Jun 2026 04:00","Iran","New Zealand","MetLife Stadium","New York"],
+    ["M039","Group G","18 Jun 2026 04:00","Belgium","Iran","Rose Bowl","Los Angeles"],
+    ["M040","Group G","18 Jun 2026 22:30","New Zealand","Egypt","Estadio BBVA","Monterrey"],
+    ["M041","Group G","23 Jun 2026 04:00","Egypt","Iran","BC Place","Vancouver"],
+    ["M042","Group G","23 Jun 2026 04:00","New Zealand","Belgium","BMO Field","Toronto"],
 
-    # Group H
-    ["M043","Group H","15 Jun 2026 04:00","Portugal","??","Estadio Azteca","Mexico City"],
-    ["M044","Group H","16 Jun 2026 04:00","??","??","BMO Field","Toronto"],
-    ["M045","Group H","19 Jun 2026 04:00","Portugal","??","Estadio Azteca","Mexico City"],
-    ["M046","Group H","20 Jun 2026 04:00","??","??","BMO Field","Toronto"],
-    ["M047","Group H","23 Jun 2026 04:00","??","??","Estadio Azteca","Mexico City"],
-    ["M048","Group H","24 Jun 2026 04:00","??","??","BMO Field","Toronto"],
+    # Group H: Spain ⭐, Cape Verde, Saudi Arabia, Uruguay
+    ["M043","Group H","14 Jun 2026 22:30","Spain","Cape Verde","Estadio Azteca","Mexico City"],
+    ["M044","Group H","15 Jun 2026 01:30","Saudi Arabia","Uruguay","Arrowhead Stadium","Kansas City"],
+    ["M045","Group H","19 Jun 2026 01:30","Spain","Saudi Arabia","Levi's Stadium","San Jose"],
+    ["M046","Group H","19 Jun 2026 04:00","Uruguay","Cape Verde","Lincoln Financial Field","Philadelphia"],
+    ["M047","Group H","23 Jun 2026 00:00","Cape Verde","Saudi Arabia","MetLife Stadium","New York"],
+    ["M048","Group H","23 Jun 2026 00:00","Uruguay","Spain","Hard Rock Stadium","Miami"],
 
-    # Group I
-    ["M049","Group I","18 Jun 2026 01:00","Netherlands","??","Gillette Stadium","Boston"],
-    ["M050","Group I","18 Jun 2026 04:00","??","??","Stade Olympique","Montreal"],
-    ["M051","Group I","22 Jun 2026 01:00","Netherlands","??","Gillette Stadium","Boston"],
-    ["M052","Group I","22 Jun 2026 04:00","??","??","Stade Olympique","Montreal"],
-    ["M053","Group I","26 Jun 2026 01:00","??","??","Gillette Stadium","Boston"],
-    ["M054","Group I","26 Jun 2026 04:00","??","??","Stade Olympique","Montreal"],
+    # Group I: France ⭐, Senegal, Iraq, Norway
+    ["M049","Group I","15 Jun 2026 04:00","France","Senegal","AT&T Stadium","Dallas"],
+    ["M050","Group I","15 Jun 2026 22:30","Iraq","Norway","Gillette Stadium","Boston"],
+    ["M051","Group I","19 Jun 2026 22:30","France","Iraq","BC Place","Vancouver"],
+    ["M052","Group I","20 Jun 2026 01:30","Norway","Senegal","NRG Stadium","Houston"],
+    ["M053","Group I","24 Jun 2026 00:00","Senegal","Iraq","Estadio Azteca","Mexico City"],
+    ["M054","Group I","24 Jun 2026 00:00","Norway","France","SoFi Stadium","Los Angeles"],
 
-    # Group J
-    ["M055","Group J","13 Jun 2026 22:30","??","??","AT&T Stadium","Dallas"],
-    ["M056","Group J","14 Jun 2026 01:30","??","??","Arrowhead Stadium","Kansas City"],
-    ["M057","Group J","17 Jun 2026 22:30","??","??","AT&T Stadium","Dallas"],
-    ["M058","Group J","18 Jun 2026 01:30","??","??","Arrowhead Stadium","Kansas City"],
-    ["M059","Group J","21 Jun 2026 22:30","??","??","AT&T Stadium","Dallas"],
-    ["M060","Group J","22 Jun 2026 01:30","??","??","Arrowhead Stadium","Kansas City"],
+    # Group J: Argentina ⭐, Algeria, Austria, Jordan
+    ["M055","Group J","15 Jun 2026 22:30","Argentina","Algeria","Rose Bowl","Los Angeles"],
+    ["M056","Group J","16 Jun 2026 01:30","Austria","Jordan","MetLife Stadium","New York"],
+    ["M057","Group J","20 Jun 2026 01:30","Argentina","Austria","Hard Rock Stadium","Miami"],
+    ["M058","Group J","20 Jun 2026 04:00","Jordan","Algeria","Arrowhead Stadium","Kansas City"],
+    ["M059","Group J","24 Jun 2026 04:00","Algeria","Austria","Estadio BBVA","Monterrey"],
+    ["M060","Group J","24 Jun 2026 04:00","Jordan","Argentina","Lincoln Financial Field","Philadelphia"],
 
-    # Group K
-    ["M061","Group K","13 Jun 2026 04:00","??","??","BMO Field","Toronto"],
-    ["M062","Group K","14 Jun 2026 04:00","??","??","BC Place","Vancouver"],
-    ["M063","Group K","17 Jun 2026 04:00","??","??","BMO Field","Toronto"],
-    ["M064","Group K","18 Jun 2026 04:00","??","??","BC Place","Vancouver"],
-    ["M065","Group K","21 Jun 2026 04:00","??","??","BMO Field","Toronto"],
-    ["M066","Group K","22 Jun 2026 04:00","??","??","BC Place","Vancouver"],
+    # Group K: Portugal ⭐, Congo DR, Uzbekistan, Colombia
+    ["M061","Group K","16 Jun 2026 22:30","Portugal","Congo DR","BMO Field","Toronto"],
+    ["M062","Group K","17 Jun 2026 01:30","Uzbekistan","Colombia","AT&T Stadium","Dallas"],
+    ["M063","Group K","21 Jun 2026 01:30","Portugal","Uzbekistan","SoFi Stadium","Los Angeles"],
+    ["M064","Group K","21 Jun 2026 04:00","Colombia","Congo DR","NRG Stadium","Houston"],
+    ["M065","Group K","25 Jun 2026 00:00","Congo DR","Uzbekistan","Gillette Stadium","Boston"],
+    ["M066","Group K","25 Jun 2026 00:00","Colombia","Portugal","BC Place","Vancouver"],
 
-    # Group L
-    ["M067","Group L","13 Jun 2026 01:30","??","??","Allegiant Stadium","Las Vegas"],
-    ["M068","Group L","13 Jun 2026 04:00","??","??","Rose Bowl","Pasadena"],
-    ["M069","Group L","17 Jun 2026 01:30","??","??","Allegiant Stadium","Las Vegas"],
-    ["M070","Group L","17 Jun 2026 04:00","??","??","Rose Bowl","Pasadena"],
-    ["M071","Group L","21 Jun 2026 01:30","??","??","Allegiant Stadium","Las Vegas"],
-    ["M072","Group L","21 Jun 2026 04:00","??","??","Rose Bowl","Pasadena"],
+    # Group L: England ⭐, Croatia, Ghana, Panama
+    ["M067","Group L","17 Jun 2026 04:00","England","Croatia","MetLife Stadium","New York"],
+    ["M068","Group L","18 Jun 2026 01:30","Ghana","Panama","Estadio Azteca","Mexico City"],
+    ["M069","Group L","22 Jun 2026 01:30","England","Ghana","Rose Bowl","Los Angeles"],
+    ["M070","Group L","22 Jun 2026 04:00","Panama","Croatia","Arrowhead Stadium","Kansas City"],
+    ["M071","Group L","26 Jun 2026 00:00","Croatia","Ghana","Lincoln Financial Field","Philadelphia"],
+    ["M072","Group L","26 Jun 2026 00:00","Panama","England","Levi's Stadium","San Jose"],
 
     # ── ROUND OF 32 (48 group matches → 32 teams) ───────────────────────────────
     ["M073","Round of 32","28 Jun 2026 22:30","TBD","TBD","MetLife Stadium","New York/NJ"],
@@ -184,19 +193,84 @@ DARK_GREEN = {"red": 0.0,  "green": 0.27, "blue": 0.0}
 
 
 def connect():
-    creds = Credentials.from_service_account_file(CREDS_PATH, scopes=SCOPES)
-    client = gspread.authorize(creds)
-    return client
+    """Connect with full scopes (Drive + Sheets). Falls back to Sheets-only."""
+    try:
+        creds  = Credentials.from_service_account_file(CREDS_PATH, scopes=SCOPES)
+        client = gspread.authorize(creds)
+        # Quick connectivity test
+        client.list_spreadsheet_files()
+        return client, creds
+    except Exception as e:
+        if "403" in str(e) or "quota" in str(e).lower() or "drive" in str(e).lower():
+            print(f"⚠  Drive API issue detected: {e}")
+            print("   Retrying with Sheets-only scope...")
+            creds  = Credentials.from_service_account_file(CREDS_PATH, scopes=SHEETS_ONLY_SCOPES)
+            client = gspread.authorize(creds)
+            return client, creds
+        raise
 
 
-def get_or_create_sheet(client):
+def _create_via_sheets_api(creds):
+    """Create a spreadsheet using Sheets API v4 (no Drive API required)."""
+    service = build("sheets", "v4", credentials=creds)
+    body = {"properties": {"title": SHEET_NAME}}
+    resp = service.spreadsheets().create(body=body, fields="spreadsheetId").execute()
+    sheet_id = resp["spreadsheetId"]
+    print(f"  Created sheet via Sheets API: {sheet_id}")
+    return sheet_id
+
+
+def _share_with_user(sheet_id, creds):
+    """Share the sheet with the user's email via Drive API."""
+    try:
+        drive = build("drive", "v3", credentials=creds)
+        drive.permissions().create(
+            fileId=sheet_id,
+            body={"type": "user", "role": "writer", "emailAddress": USER_EMAIL},
+            sendNotificationEmail=False,
+        ).execute()
+        print(f"  Shared with {USER_EMAIL} (writer)")
+    except Exception as e:
+        print(f"  ⚠ Could not auto-share (Drive API may not be enabled): {e}")
+        print(f"  👉 Manually share this URL with yourself:")
+        print(f"     https://docs.google.com/spreadsheets/d/{sheet_id}/edit")
+
+
+def get_or_create_sheet(client, creds):
+    # Step 1: If we know the sheet ID already, open directly (fastest, no Drive API needed)
+    if EXISTING_SHEET_ID:
+        try:
+            sh = client.open_by_key(EXISTING_SHEET_ID)
+            print(f"✅ Opened existing sheet by ID: {EXISTING_SHEET_ID}")
+            return sh
+        except Exception as e:
+            print(f"⚠  Could not open sheet by ID: {e}")
+            print(f"   → Go to the sheet → Share → add your service account email as Editor")
+            print(f"   → Find service account email in google_credentials.json (client_email field)")
+            raise SystemExit(1)
+
+    # Step 2: Try opening by name
     try:
         sh = client.open(SHEET_NAME)
-        print(f"Opened existing sheet: {SHEET_NAME}")
+        print(f"Opened existing sheet by name: {SHEET_NAME}")
+        return sh
     except gspread.SpreadsheetNotFound:
+        pass
+
+    # Step 3: Try Drive-backed create
+    try:
         sh = client.create(SHEET_NAME)
-        sh.share(None, perm_type="anyone", role="writer")
-        print(f"Created new sheet: {SHEET_NAME}")
+        sh.share(USER_EMAIL, perm_type="user", role="writer", notify=False)
+        print(f"Created sheet + shared with {USER_EMAIL}")
+        return sh
+    except Exception as e:
+        print(f"⚠  Drive create failed ({e})")
+        print("   Falling back to Sheets API v4 direct create...")
+
+    # Step 4: Sheets API create (no Drive API needed)
+    sheet_id = _create_via_sheets_api(creds)
+    _share_with_user(sheet_id, creds)
+    sh = client.open_by_key(sheet_id)
     return sh
 
 
@@ -232,31 +306,30 @@ def setup_poll_responses(sh):
         "horizontalAlignment": "CENTER",
     })
     ws.freeze(rows=1)
-    ws.set_column_width(0, 100)
 
 
 def setup_leaderboard(sh):
     ws = sh.worksheet("Leaderboard")
     ws.clear()
-    headers = ["Rank","Player","Team","Star Player","Jersey","Total Points","Correct","Wrong","Missed","Streak","Last Updated"]
+    headers = ["Rank","Player","Full Name","Total Points","Correct","Wrong","Missed","Streak","Last Updated"]
     ws.append_row(headers)
-    ws.format("A1:K1", {
+    ws.format("A1:I1", {
         "backgroundColor": DARK_GREEN,
         "textFormat": {"bold": True, "foregroundColor": WHITE},
         "horizontalAlignment": "CENTER",
     })
     # Seed with all 8 players at 0 points
+    rows = []
     for i, p in enumerate(PLAYERS):
-        ws.append_row([
+        rows.append([
             i + 1,
             p["pet"],
-            p["team"],
-            p["star"],
-            p["jersey"],
+            p["full"],
             0, 0, 0, 0,
             "—",
             datetime.now().strftime("%d %b %Y %H:%M IST"),
         ])
+    ws.append_rows(rows)
     ws.freeze(rows=1)
 
 
@@ -289,13 +362,7 @@ def setup_full_schedule(sh):
         rows.append([m[0], m[1], m[2], m[3], m[4], m[5], m[6], "Upcoming", "", "", "", ""])
     ws.append_rows(rows)
     ws.freeze(rows=1)
-
-    # Alternate row shading
-    for i, row_data in enumerate(rows):
-        row_num = i + 2  # 1-indexed, row 1 is header
-        if i % 2 == 0:
-            ws.format(f"A{row_num}:L{row_num}", {"backgroundColor": {"red": 0.93, "green": 0.97, "blue": 0.93}})
-
+    # Row shading skipped — would hit Sheets API rate limits (60 writes/min)
     print(f"  Populated Full Schedule with {len(SCHEDULE)} matches")
 
 
@@ -332,11 +399,11 @@ def setup_team_stats(sh):
 
 
 def main():
-    print("Connecting to Google Sheets...")
-    client = connect()
+    print("Connecting to Google API...")
+    client, creds = connect()
 
     print(f"Opening/creating '{SHEET_NAME}'...")
-    sh = get_or_create_sheet(client)
+    sh = get_or_create_sheet(client, creds)
 
     print("Creating tabs...")
     ensure_tabs(sh)

@@ -142,14 +142,14 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(38px,8vw,76px);letter-spa
 </div>
 <script>
 const LEADERBOARD = window.LEADERBOARD || [
-  {rank:1,player:"Budhya",team:"Portugal",flag:"🇵🇹",jersey:7,star:"C. Ronaldo",pts:9,correct:3,wrong:0,missed:0,streak:"🔥🔥🔥",delta:"+1"},
-  {rank:2,player:"Anna",  team:"France",  flag:"🇫🇷",jersey:10,star:"K. Mbappé", pts:6,correct:2,wrong:1,missed:0,streak:"🔥🔥",  delta:"+2"},
-  {rank:3,player:"Ambu",  team:"Argentina",flag:"🇦🇷",jersey:10,star:"L. Messi",  pts:6,correct:2,wrong:1,missed:0,streak:"🔥",    delta:"-1"},
-  {rank:4,player:"Vini",  team:"England", flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",jersey:9, star:"H. Kane",  pts:3,correct:1,wrong:2,missed:0,streak:"—",    delta:"0"},
-  {rank:5,player:"Baby",  team:"Spain",   flag:"🇪🇸",jersey:8, star:"Pedri",     pts:3,correct:1,wrong:1,missed:1,streak:"—",    delta:"0"},
-  {rank:6,player:"Abs",   team:"Germany", flag:"🇩🇪",jersey:8, star:"J. Musiala",pts:0,correct:0,wrong:1,missed:2,streak:"🧊",    delta:"-1"},
-  {rank:7,player:"Umaga", team:"Brazil",  flag:"🇧🇷",jersey:10,star:"Vinicius Jr",pts:-2,correct:0,wrong:1,missed:1,streak:"🧊🧊",  delta:"0"},
-  {rank:8,player:"PR",    team:"Netherlands",flag:"🇳🇱",jersey:11,star:"X. Simons",pts:-4,correct:0,wrong:0,missed:2,streak:"🧊🧊🧊",delta:"-1"},
+  {rank:1,player:"Budhya",pts:0,correct:0,wrong:0,missed:0,streak:"—",delta:"0"},
+  {rank:2,player:"Ambu",  pts:0,correct:0,wrong:0,missed:0,streak:"—",delta:"0"},
+  {rank:3,player:"Vini",  pts:0,correct:0,wrong:0,missed:0,streak:"—",delta:"0"},
+  {rank:4,player:"Baby",  pts:0,correct:0,wrong:0,missed:0,streak:"—",delta:"0"},
+  {rank:5,player:"Abs",   pts:0,correct:0,wrong:0,missed:0,streak:"—",delta:"0"},
+  {rank:6,player:"Anna",  pts:0,correct:0,wrong:0,missed:0,streak:"—",delta:"0"},
+  {rank:7,player:"Umaga", pts:0,correct:0,wrong:0,missed:0,streak:"—",delta:"0"},
+  {rank:8,player:"PR",    pts:0,correct:0,wrong:0,missed:0,streak:"—",delta:"0"},
 ];
 
 function avSrc(p){return `assets/avatars/${p.player.toLowerCase()}_avatar.png`;}
@@ -174,9 +174,8 @@ function buildPodium(){
       <span class="pod-icon">${icons[i]}</span>
       <div class="pod-rank">#${[2,1,3][i]} PLACE</div>
       <img class="pod-av" src="${avSrc(p)}" alt="${p.player}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-      <div class="pod-ph">${p.flag}</div>
-      <div class="pod-name">${p.player} ${p.flag}</div>
-      <div class="pod-team">${p.team}</div>
+      <div class="pod-ph">⚽</div>
+      <div class="pod-name">${p.player}</div>
       <div class="pod-pts">${p.pts}</div>
       <div class="pod-lbl">POINTS</div>
     </div>`).join("")}</div>`;
@@ -195,13 +194,10 @@ function buildLB(){
       <div class="lb-rank ${rc_cls}">${rk}</div>
       <div class="av-wrap">
         <img class="lb-av" src="${avSrc(p)}" alt="${p.player}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-        <div class="lb-ph">${p.flag}</div>
-        <span class="lb-flag">${p.flag}</span>
+        <div class="lb-ph">⚽</div>
       </div>
       <div class="lb-info">
-        <div class="lb-name">${p.player} <span class="fb">★</span></div>
-        <div class="lb-team">${p.team}</div>
-        <div class="lb-star">${p.star}</div>
+        <div class="lb-name">${p.player}</div>
       </div>
       <div class="lb-stats">
         <div class="stat-box"><div class="stat-v pts">${p.pts}</div><div class="stat-l">PTS</div></div>

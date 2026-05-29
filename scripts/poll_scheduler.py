@@ -43,7 +43,7 @@ SHEET_NAME     = "FIFA World Cup 2026"
 CHROME_PROFILE = r"C:\Users\siddh\AppData\Local\Google\Chrome\User Data\Profile 6"
 WA_GROUP       = "FIFA 26 Test Group"              # test group — update to final group name when ready
 FOOTBALL_API   = "https://api.football-data.org/v4"
-FOOTBALL_KEY   = ""                               # ← paste your free-tier key from football-data.org
+FOOTBALL_KEY   = "0c802b9b126b4e7b987bf005bea418a6"# ← paste your free-tier key from football-data.org
 FIFA_COMP_ID   = 2000                             # FIFA World Cup competition ID
 
 IST  = pytz.timezone("Asia/Kolkata")

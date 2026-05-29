@@ -1,5 +1,5 @@
 # MASTER STATE — FIFA Fantasy 2026
-*Last updated: 2026-05-29*
+*Last updated: 2026-05-29 (Session 3)*
 
 ---
 
@@ -7,8 +7,8 @@
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Phase 1 — Avatar Creation | ✅ DONE | All 8 avatar PNGs + jersey backs generated in `assets/avatars/` |
-| Phase 2 — Google Sheets Setup | ⚠️ BLOCKED | `setup_sheets.py` ready. **User must free Google Drive space** (403 quota exceeded) then re-run |
+| Phase 1 — Avatar Creation | ⚠️ RUN NEEDED | Old (non-cartoon) PNGs exist. Run `scripts/run_avatars.bat` to regenerate with OpenCV cartoon effect |
+| Phase 2 — Google Sheets Setup | ⚠️ RUN NEEDED | setup_sheets.py fixed (Sheets API fallback, no Drive API required). Run it now. |
 | Phase 3 — WhatsApp Poll Automation | ✅ BUILT | `scripts/poll_scheduler.py`. Needs football-data.org API key. Group: "FIFA 26 Test Group" |
 | Phase 4 — Dashboard (GitHub Pages) | ✅ LIVE | Deployed at https://siddb12-cyber.github.io/fifa-fantasy-2026/ |
 | Phase 5 — Windows Task Scheduler | ✅ BUILT | `scripts/setup_scheduler.bat` — run as Admin after Sheets setup |
@@ -44,28 +44,32 @@ FIFA World Cup Fantasy Game/
 
 ---
 
-## Players & Assignments
+## Players
 
-| Pet Name | Full Name | Team | Jersey | Star Player | DP Filename |
-|----------|-----------|------|--------|-------------|-------------|
-| Budhya | Sidhant Budhkar | Portugal | #7 | Cristiano Ronaldo | Sidhant Budhkar (Budhya).jpg |
-| Ambu | Kushal Ambulkar | Argentina | #10 | Lionel Messi | Kushal Ambulkar (Ambu).jpg |
-| Vini | Vineet Nayak | England | #9 | Harry Kane | Vineet Nayak (Vini).jpg |
-| Baby | Susmit Gulavani | Spain | #8 | Pedri | Susmit Gulavani (Baby).jpg |
-| Abs | Abhishek Desai | Germany | #8 | Jamal Musiala | Abhishek Desai (Abs).jpg |
-| Anna | Nishant Salian | France | #10 | Kylian Mbappé | Nishant Salian (Anna).jpg |
-| Umaga | Umang Budhkar | Brazil | #10 | Vinicius Jr. | Umang Budhkar (Umaga).jpg |
-| PR | Pranav Raut | Netherlands | #11 | Xavi Simons | Pranav Raut (PR).jpg |
+| Pet Name | Full Name | DP Filename |
+|----------|-----------|-------------|
+| Budhya | Sidhant Budhkar | Sidhant (Budhya).jpeg |
+| Ambu   | Kushal Ambulkar | Kushal (Ambu).jpeg |
+| Vini   | Vineet Nayak    | Vineet (Vini).jpeg |
+| Baby   | Susmit Gulavani | Susmit (Baby).jpeg |
+| Abs    | Abhishek Desai  | Abhishek (Abs).jpeg |
+| Anna   | Nishant Salian  | Nishant (Anna).jpeg |
+| Umaga  | Umang Budhkar   | Umang (Umaga).jpeg |
+| PR     | Pranav Raut     | Pranav (PR).jpeg |
+
+*Team/country/jersey removed from player model — Session 4.*
 
 ---
 
 ## Pending Actions (User Must Do)
 
-1. **⚠️ FREE GOOGLE DRIVE SPACE** → Go to drive.google.com → Storage → free up space → then run `python scripts/setup_sheets.py`
-2. **Set football-data.org API key** → Register free at football-data.org → edit `poll_scheduler.py` and `stats_fetcher.py` → set `FOOTBALL_KEY = "your_key"`
-3. **Enable GitHub Pages** → Go to github.com/siddb12-cyber/fifa-fantasy-2026 → Settings → Pages → Source: `main` branch, `/ (root)` folder → Save
-4. **Register Task Scheduler** → Run `scripts/setup_scheduler.bat` as Administrator (after Sheets setup done)
-5. **Update WhatsApp group name** → When real group created, edit `poll_scheduler.py` → set `WA_GROUP = "real group name"`
+1. **🎨 REGENERATE CARTOON AVATARS** → Run `scripts/run_avatars.bat` (double-click) — replaces old photos with OpenCV cartoon cards
+2. **📊 SET UP GOOGLE SHEETS** → Run `python scripts/setup_sheets.py` — fixed 403 error (now uses Sheets API fallback, no Drive API needed)
+3. **🔑 Set football-data.org API key** → Register free at football-data.org → edit `poll_scheduler.py` + `stats_fetcher.py` → set `FOOTBALL_KEY = "your_key"`
+4. **🌐 Enable GitHub Pages** → github.com/siddb12-cyber/fifa-fantasy-2026 → Settings → Pages → Source: main / root → Save
+5. **📤 Push redesigned dashboard** → Run `scripts/push_dashboard.bat` to push all v2 redesigns to GitHub Pages
+6. **⚙️ Register Task Scheduler** → Run `scripts/setup_scheduler.bat` as Administrator (after Sheets setup)
+7. **💬 Update WhatsApp group** → When real group created, edit `poll_scheduler.py` → `WA_GROUP = "real group name"`
 
 ### ✅ Completed Actions
 - google_credentials.json placed at `C:/Users/siddh/Downloads/HK/FIFA/`

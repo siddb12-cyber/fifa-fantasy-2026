@@ -23,7 +23,7 @@ BASE_DIR     = Path(r"C:\Users\siddh\Downloads\HK\FIFA")
 CREDS_PATH   = BASE_DIR / "google_credentials.json"
 SHEET_NAME   = "FIFA World Cup 2026"
 API_BASE     = "https://api.football-data.org/v4"
-FOOTBALL_KEY = ""     # ← paste your free key from football-data.org
+FOOTBALL_KEY = "0c802b9b126b4e7b987bf005bea418a6"# ← paste your free key from football-data.org
 FIFA_COMP    = 2000   # FIFA World Cup 2026 competition ID
 
 IST    = pytz.timezone("Asia/Kolkata")
@@ -158,26 +158,39 @@ def sync_match_results(sh):
     ws       = sh.worksheet("Full Schedule")
     schedule = ws.get_all_records()
 
+    # API status → dashboard status mapping (exact enum values from football-data.org)
+    LIVE_STATUSES     = {"IN_PLAY", "PAUSED", "EXTRA_TIME", "PENALTY_SHOOTOUT"}
+    FINISHED_STATUSES = {"FINISHED", "AWARDED"}
+
     for api_match in matches:
-        status = api_match.get("status")
-        if status != "FINISHED":
+        status = api_match.get("status", "")
+        if status not in LIVE_STATUSES and status not in FINISHED_STATUSES:
             continue
+
         home = api_match.get("homeTeam", {}).get("name", "")
         away = api_match.get("awayTeam", {}).get("name", "")
-        ft   = api_match.get("score", {}).get("fullTime", {})
-        score_home = ft.get("home")
-        score_away = ft.get("away")
+
+        # Get score — fullTime for FINISHED, currentScore / halfTime for live
+        score_obj  = api_match.get("score", {})
+        if status in FINISHED_STATUSES:
+            sc = score_obj.get("fullTime", {})
+        else:
+            sc = score_obj.get("halfTime", {}) or score_obj.get("fullTime", {})
+        score_home = sc.get("home")
+        score_away = sc.get("away")
+
+        dash_status = "Completed" if status in FINISHED_STATUSES else "Live"
 
         # Match against our schedule by team names
         for i, row in enumerate(schedule):
-            if (home in row["Team A"] or row["Team A"] in home) and \
-               (away in row["Team B"] or row["Team B"] in away):
+            if (home in row.get("Team A", "") or row.get("Team A", "") in home) and \
+               (away in row.get("Team B", "") or row.get("Team B", "") in away):
                 row_num = i + 2
-                if row["Status"] not in ("Completed",):
-                    ws.update_cell(row_num, 8, "Completed")
+                ws.update_cell(row_num, 8, dash_status)
+                if score_home is not None:
                     ws.update_cell(row_num, 9, score_home)
                     ws.update_cell(row_num, 10, score_away)
-                    log.info(f"Updated score: {home} {score_home}-{score_away} {away}")
+                log.info(f"Updated [{dash_status}]: {home} {score_home}-{score_away} {away}")
                 break
 
     log.info("Match results sync complete")

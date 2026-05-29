@@ -25,7 +25,7 @@ except ImportError:
     print("  Falling back to PIL-only cartoon mode (less effective)")
 
 # ── PATHS ─────────────────────────────────────────────────────────────────────
-SRC_DIR  = Path(r"C:\Users\siddh\Downloads\HK\FIFA\assets\avatars")
+SRC_DIR  = Path(r"C:\Users\siddh\Downloads\HK\FIFA\FIFA World Cup Fantasy Game\assets\avatars")
 OUT_DIR  = Path(r"C:\Users\siddh\Downloads\HK\FIFA\FIFA World Cup Fantasy Game\assets\avatars")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -35,11 +35,11 @@ PLAYERS = {
     "Budhya": ("Portugal",    7,  "#FF0000", "#006600", "#FFFFFF", "#8B0000"),
     "Ambu":   ("Argentina",   10, "#75AADB", "#FFFFFF", "#FFFFFF", "#2C6FA6"),
     "Vini":   ("England",     9,  "#CF111A", "#FFFFFF", "#FFFFFF", "#8B0000"),
-    "Baby":   ("Spain",       8,  "#AA151B", "#F1BF00", "#FFFFFF", "#6B0000"),
+    "Baby":   ("Spain",       6,  "#AA151B", "#F1BF00", "#FFFFFF", "#6B0000"),
     "Abs":    ("Germany",     8,  "#1C1C1C", "#E8C84A", "#FFFFFF", "#3D3D3D"),
-    "Anna":   ("France",      10, "#002395", "#ED2939", "#FFFFFF", "#001266"),
-    "Umaga":  ("Brazil",      10, "#009C3B", "#FFDF00", "#FFFFFF", "#006B2B"),
-    "PR":     ("Netherlands", 11, "#FF4500", "#FFFFFF", "#FFFFFF", "#CC3700"),
+    "Anna":   ("France",      11, "#002395", "#ED2939", "#FFFFFF", "#001266"),
+    "Umaga":  ("Brazil",      1,  "#009C3B", "#FFDF00", "#FFFFFF", "#006B2B"),
+    "PR":     ("Netherlands", 4,  "#FF4500", "#FFFFFF", "#FFFFFF", "#CC3700"),
 }
 
 TEAM_FLAGS = {
@@ -57,7 +57,7 @@ def hex_to_rgb(h: str):
 
 
 def find_dp(pet_name: str):
-    """Find WhatsApp DP by (PetName) pattern in source dir."""
+    """Find photo by (PetName) pattern. Supports: Name (PetName).jpeg/jpg/png"""
     for ext in ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG"):
         for f in SRC_DIR.glob(ext):
             if f"({pet_name})" in f.name:
@@ -67,60 +67,157 @@ def find_dp(pet_name: str):
     return None
 
 
-# ── CARTOON EFFECT ────────────────────────────────────────────────────────────
-def cartoon_opencv(img_pil: Image.Image, size=(320, 320)) -> Image.Image:
+# ── FACE DETECTION + SMART CROP ───────────────────────────────────────────────
+def detect_and_crop_face(img_pil: Image.Image) -> Image.Image:
     """
-    Real cartoon effect:
-    1. Bilateral filter x7 — smooth colors, preserve edges
-    2. Saturation + brightness boost — vibrant palette
-    3. Adaptive threshold — black outlines
-    4. Combine smoothed + edges
+    Detect the largest face in the image and return a square crop centered on it.
+    Falls back to top-center square crop if no face detected (handles group photos
+    where haarcascade fails). Works on full-body, upper-body, and close-up shots.
+    """
+    if not OPENCV_OK:
+        # Fallback: crop top-center square (works for most portrait shots)
+        w, h = img_pil.size
+        sq = min(w, h)
+        left = (w - sq) // 2
+        return img_pil.crop((left, 0, left + sq, sq))
+
+    img_bgr = cv2.cvtColor(np.array(img_pil.convert("RGB")), cv2.COLOR_RGB2BGR)
+    gray    = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    h_img, w_img = img_bgr.shape[:2]
+
+    # Load Haar cascade (bundled with every opencv-python install)
+    cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+
+    # Try detection at multiple scales (handles small faces in full-body shots)
+    faces = face_cascade.detectMultiScale(
+        gray, scaleFactor=1.05, minNeighbors=4, minSize=(40, 40)
+    )
+
+    if len(faces) == 0:
+        # Try with lower sensitivity for difficult lighting / side angles
+        faces = face_cascade.detectMultiScale(
+            gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30)
+        )
+
+    if len(faces) > 0:
+        # Pick the largest face (avoids background faces)
+        fx, fy, fw, fh = max(faces, key=lambda r: r[2] * r[3])
+
+        # Expand crop: add padding around face (forehead, chin, sides)
+        pad_x = int(fw * 0.55)
+        pad_y_top = int(fh * 0.70)   # more headroom above for hair
+        pad_y_bot = int(fh * 0.40)   # chin to neck
+
+        x1 = max(0, fx - pad_x)
+        y1 = max(0, fy - pad_y_top)
+        x2 = min(w_img, fx + fw + pad_x)
+        y2 = min(h_img, fy + fh + pad_y_bot)
+
+        # Make it square (expand shorter dimension)
+        cw, ch = x2 - x1, y2 - y1
+        if cw > ch:
+            diff = cw - ch
+            y1 = max(0, y1 - diff // 2)
+            y2 = min(h_img, y2 + diff - diff // 2)
+        elif ch > cw:
+            diff = ch - cw
+            x1 = max(0, x1 - diff // 2)
+            x2 = min(w_img, x2 + diff - diff // 2)
+
+        cropped = img_pil.crop((x1, y1, x2, y2))
+        print(f"    ✓ Face detected at ({fx},{fy}) {fw}×{fh}px → crop ({x1},{y1})→({x2},{y2})")
+        return cropped
+
+    # No face found — try profile face detector
+    profile_path = cv2.data.haarcascades + "haarcascade_profileface.xml"
+    profile_cascade = cv2.CascadeClassifier(profile_path)
+    faces = profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
+    if len(faces) > 0:
+        fx, fy, fw, fh = max(faces, key=lambda r: r[2] * r[3])
+        pad = int(fw * 0.6)
+        x1 = max(0, fx - pad)
+        y1 = max(0, fy - int(fh * 0.7))
+        x2 = min(w_img, fx + fw + pad)
+        y2 = min(h_img, fy + fh + int(fh * 0.4))
+        sq = max(x2 - x1, y2 - y1)
+        cx = (x1 + x2) // 2
+        cy = (y1 + y2) // 2
+        x1 = max(0, cx - sq // 2)
+        y1 = max(0, cy - sq // 2)
+        x2 = min(w_img, x1 + sq)
+        y2 = min(h_img, y1 + sq)
+        print(f"    ✓ Profile face detected → crop ({x1},{y1})→({x2},{y2})")
+        return img_pil.crop((x1, y1, x2, y2))
+
+    # Last resort — center crop (face is usually center of photo)
+    print(f"    ⚠ No face detected — using center square crop")
+    sq   = min(w_img, h_img)
+    left = (w_img - sq) // 2
+    top  = (h_img - sq) // 2
+    return img_pil.crop((left, top, left + sq, top + sq))
+
+
+# ── CLEAN CARTOON EFFECT ─────────────────────────────────────────────────────
+def ghibli_style(img_pil: Image.Image, size=(320, 320)) -> Image.Image:
+    """
+    Clean cartoon effect using bilateral filter stack.
+    No cv2.stylization (too aggressive/blotchy).
+    Produces smooth natural skin tones with a soft painted look.
+    1. 6× bilateral filter  — smooth painting without color distortion
+    2. Subtle contrast/brightness boost
+    3. Very light warm grade — just a hint, not heavy
+    4. Subtle edge lines via adaptive threshold (light, not harsh ink)
     """
     img_pil = img_pil.resize(size, Image.LANCZOS)
     img_bgr = cv2.cvtColor(np.array(img_pil.convert("RGB")), cv2.COLOR_RGB2BGR)
 
-    # Step 1: Multiple bilateral passes (the core of cartoon effect)
+    # Step 1: Bilateral filter stack — smooth painting, preserves edges
     smooth = img_bgr.copy()
-    for _ in range(7):
-        smooth = cv2.bilateralFilter(smooth, d=9, sigmaColor=200, sigmaSpace=200)
+    for _ in range(6):
+        smooth = cv2.bilateralFilter(smooth, d=9, sigmaColor=75, sigmaSpace=75)
 
-    # Step 2: Boost saturation for punchy cartoon colors
-    hsv = cv2.cvtColor(smooth, cv2.COLOR_BGR2HSV).astype(np.float32)
-    hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 1.6, 0, 255)
-    hsv[:, :, 2] = np.clip(hsv[:, :, 2] * 1.1, 0, 255)
-    smooth = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+    # Step 2: Subtle contrast boost
+    smooth = cv2.convertScaleAbs(smooth, alpha=1.08, beta=5)
 
-    # Step 3: Edge detection on median-blurred grayscale
-    gray      = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    gray_blur = cv2.medianBlur(gray, 7)
-    edges     = cv2.adaptiveThreshold(
-        gray_blur, 255,
-        cv2.ADAPTIVE_THRESH_MEAN_C,
-        cv2.THRESH_BINARY,
-        blockSize=9, C=4
-    )
+    # Step 3: Very light warm grade (subtle, only +4% R, -5% B)
+    b, g, r = cv2.split(smooth.astype(np.float32))
+    r = np.clip(r * 1.04, 0, 255)
+    b = np.clip(b * 0.95, 0, 255)
+    smooth = cv2.merge([b.astype(np.uint8), g.astype(np.uint8), r.astype(np.uint8)])
 
-    # Step 4: Apply edge mask over smoothed image
-    cartoon_bgr = cv2.bitwise_and(smooth, smooth, mask=edges)
+    # Step 4: Soft edge overlay — very subtle, no harsh black lines
+    gray  = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    gray  = cv2.medianBlur(gray, 5)
+    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                   cv2.THRESH_BINARY, 9, 9)
+    # Blend edges at only 30% weight — just a hint of cartoon lines
+    edges_f = edges.astype(np.float32) / 255.0
+    result  = smooth.astype(np.float32)
+    for c in range(3):
+        result[:, :, c] = np.clip(result[:, :, c] * (0.70 + 0.30 * edges_f), 0, 255)
 
-    return Image.fromarray(cv2.cvtColor(cartoon_bgr, cv2.COLOR_BGR2RGB))
+    return Image.fromarray(cv2.cvtColor(result.astype(np.uint8), cv2.COLOR_BGR2RGB))
 
 
 def cartoon_pil(img_pil: Image.Image, size=(320, 320)) -> Image.Image:
-    """Fallback PIL cartoon: smooth + edge enhance + saturation."""
+    """Fallback (no OpenCV): soft watercolor approximation with PIL."""
     img = img_pil.resize(size, Image.LANCZOS)
-    for _ in range(8):
+    for _ in range(6):
         img = img.filter(ImageFilter.SMOOTH_MORE)
-    img = img.filter(ImageFilter.EDGE_ENHANCE_MORE)
-    img = ImageEnhance.Color(img).enhance(1.8)
-    img = ImageEnhance.Contrast(img).enhance(1.3)
-    img = ImageEnhance.Sharpness(img).enhance(1.5)
-    return img
+    img = ImageEnhance.Color(img).enhance(1.5)
+    img = ImageEnhance.Contrast(img).enhance(1.15)
+    img = ImageEnhance.Brightness(img).enhance(1.05)
+    # Warm tint
+    r, g, b = img.split()
+    r = ImageEnhance.Brightness(r).enhance(1.08)
+    b = ImageEnhance.Brightness(b).enhance(0.90)
+    return Image.merge("RGB", (r, g, b))
 
 
 def apply_cartoon(img_pil: Image.Image, size=(320, 320)) -> Image.Image:
     if OPENCV_OK:
-        return cartoon_opencv(img_pil, size)
+        return ghibli_style(img_pil, size)
     return cartoon_pil(img_pil, size)
 
 
@@ -335,7 +432,7 @@ def make_jersey_back(pet, jersey, primary, secondary):
 def main():
     print("\n" + "=" * 62)
     print("  FIFA Fantasy 2026 — Cartoon Avatar Generator")
-    print(f"  Cartoon method: {'OpenCV bilateral+edge' if OPENCV_OK else 'PIL fallback'}")
+    print(f"  Style: {'Ghibli (stylization + warm grade)' if OPENCV_OK else 'PIL watercolor fallback'}")
     print("=" * 62 + "\n")
 
     success = 0
@@ -349,11 +446,8 @@ def main():
         print(f"  🎨  {pet}  ({team} #{jersey})  ←  {dp_path.name}")
         try:
             face_raw = Image.open(dp_path).convert("RGB")
-            # Centre-square crop
-            w, h = face_raw.size
-            m    = min(w, h)
-            face_raw = face_raw.crop(((w - m)//2, (h - m)//2,
-                                       (w + m)//2, (h + m)//2))
+            # Smart face detection + crop (handles full-body / upper-body shots)
+            face_raw = detect_and_crop_face(face_raw)
 
             face_cartoon = apply_cartoon(face_raw, size=(320, 320))
 
@@ -366,4 +460,18 @@ def main():
             jersey_card = make_jersey_back(pet, jersey, primary, secondary)
             jp = OUT_DIR / f"{pet.lower()}_jersey_back.png"
             jersey_card.save(jp, "PNG", optimize=True)
-       
+            print(f"       ✅  {jp.name}")
+
+            success += 1
+        except Exception as e:
+            import traceback
+            print(f"       ❌  Error: {e}")
+            traceback.print_exc()
+
+    print(f"\n{'=' * 62}")
+    print(f"  Done: {success}/{len(PLAYERS)} avatars generated → {OUT_DIR}")
+    print("=" * 62 + "\n")
+
+
+if __name__ == "__main__":
+    main()
