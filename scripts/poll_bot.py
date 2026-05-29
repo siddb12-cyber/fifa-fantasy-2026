@@ -253,45 +253,46 @@ def main():
 
             if not in_window and not force_this:
                 continue
-                ta, tb = match['team_a'], match['team_b']
-                print(f'  📨 [{notif_type}] {match["id"]} — {ta} vs {tb}  (in {diff_min:.0f} min)')
 
-                poll_id = ''
+            ta, tb = match['team_a'], match['team_b']
+            print(f'  📨 [{notif_type}] {match["id"]} — {ta} vs {tb}  (in {diff_min:.0f} min)')
 
-                if notif_type == 'poll':
-                    # Step 1: Send the caption/context message
+            poll_id = ''
+
+            if notif_type == 'poll':
+                # Step 1: Send caption/context message
+                tg('sendMessage', {
+                    'chat_id':    CHAT_ID,
+                    'text':       build_poll_caption(match),
+                    'parse_mode': 'Markdown',
+                })
+                # Step 2: Send native Telegram poll
+                resp = tg('sendPoll', {
+                    'chat_id':               CHAT_ID,
+                    'question':              f'⚽ {ta}  vs  {tb} — Who wins?',
+                    'options':               [
+                        f'🔵 {ta} wins',
+                        f'🤝 Draw (the diplomat choice)',
+                        f'🔴 {tb} wins',
+                    ],
+                    'is_anonymous':          False,
+                    'allows_multiple_answers': False,
+                    'protect_content':       False,
+                })
+                result = resp.get('result', {})
+                poll_id = result.get('poll', {}).get('id', '')
+
+            else:
+                msg = build_reminder(match, notif_type)
+                if msg:
                     tg('sendMessage', {
                         'chat_id':    CHAT_ID,
-                        'text':       build_poll_caption(match),
+                        'text':       msg,
                         'parse_mode': 'Markdown',
                     })
-                    # Step 2: Send native Telegram poll
-                    resp = tg('sendPoll', {
-                        'chat_id':               CHAT_ID,
-                        'question':              f'⚽ {ta}  vs  {tb} — Who wins?',
-                        'options':               [
-                            f'🔵 {ta} wins',
-                            f'🤝 Draw (the diplomat choice)',
-                            f'🔴 {tb} wins',
-                        ],
-                        'is_anonymous':          False,
-                        'allows_multiple_answers': False,
-                        'protect_content':       False,
-                    })
-                    result = resp.get('result', {})
-                    poll_id = result.get('poll', {}).get('id', '')
 
-                else:
-                    msg = build_reminder(match, notif_type)
-                    if msg:
-                        tg('sendMessage', {
-                            'chat_id':    CHAT_ID,
-                            'text':       msg,
-                            'parse_mode': 'Markdown',
-                        })
-
-                log_sent(gc, match['id'], notif_type, poll_id, match['datetime_ist'])
-                sent_count += 1
+            log_sent(gc, match['id'], notif_type, poll_id, match['datetime_ist'])
+            sent_count += 1
 
     if sent_count == 0:
         print('  ✅ Nothing to send right now.')
