@@ -1,0 +1,21 @@
+# Secrets — never commit these
+*.env
+*.key
+*_credentials.json
+google_credentials.json
+Gemini_API_Key.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs (keep structure but not content)
+# logs/  ← intentionally tracked
+
+# Large generated files that don't belong in git
+scripts/avatar_card_generator.py.bak
