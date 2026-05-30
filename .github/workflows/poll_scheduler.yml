@@ -8,20 +8,16 @@ on:
     - cron: '0,30 * * * *'
   workflow_dispatch:
     inputs:
-      test_mode:
-        description: 'Test mode? (uses test_matches.json)'
-        type: boolean
-        default: true
       force_send:
-        description: 'Force send a test poll immediately (bypasses timing)'
+        description: 'Force send poll immediately (bypasses timing)'
         type: boolean
         default: false
       force_match:
-        description: 'Match ID to force send (e.g. T001, T002). Leave blank for first match.'
+        description: 'Match ID to force (e.g. M001). Leave blank for next due match.'
         type: string
         default: ''
       trial_mode:
-        description: 'Trial mode? (uses trial_matches.json with preponed real match dates)'
+        description: 'Trial mode (uses trial_matches.json). Uncheck only on June 12 to go live.'
         type: boolean
         default: true
 
@@ -48,8 +44,8 @@ jobs:
           TELEGRAM_CHAT_ID:        ${{ secrets.TELEGRAM_CHAT_ID }}
           GOOGLE_SHEET_ID:         ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
-          TEST_MODE:               ${{ github.event.inputs.test_mode || 'true' }}
+          TEST_MODE:               'false'
           FORCE_SEND:              ${{ github.event.inputs.force_send || 'false' }}
           FORCE_MATCH:             ${{ github.event.inputs.force_match || '' }}
-          TRIAL_MODE:              ${{ github.event.inputs.trial_mode || 'false' }}
+          TRIAL_MODE:              ${{ github.event.inputs.trial_mode || 'true' }}
         run: python scripts/poll_bot.py

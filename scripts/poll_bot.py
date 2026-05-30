@@ -111,8 +111,8 @@ def get_sent_log(gc):
         try:
             ws = sh.worksheet('Sent Log')
         except:
-            ws = sh.add_worksheet('Sent Log', rows=1000, cols=6)
-            ws.append_row(['Match ID', 'Notif Type', 'Telegram Poll ID', 'Sent At', 'Match Time IST', 'Mode'])
+            ws = sh.add_worksheet('Sent Log', rows=1000, cols=7)
+            ws.append_row(['Match ID', 'Notif Type', 'Telegram Poll ID', 'Message ID', 'Sent At', 'Match Time IST', 'Mode'])
         rows = ws.get_all_values()
         return {f"{r[0]}::{r[1]}" for r in rows[1:] if len(r) >= 2}
     except Exception as e:
@@ -120,7 +120,27 @@ def get_sent_log(gc):
         return set()
 
 
-def log_sent(gc, match_id, notif_type, poll_id='', match_datetime=''):
+def get_poll_message_ids(gc):
+    """Return {match_id: telegram_message_id} for all sent polls — used for reply-to on reminders."""
+    if not gc:
+        return {}
+    try:
+        sh   = gc.open_by_key(SHEET_ID)
+        ws   = sh.worksheet('Sent Log')
+        rows = ws.get_all_records()
+        result = {}
+        for row in rows:
+            if row.get('Notif Type') == 'poll':
+                mid = str(row.get('Message ID', '')).strip()
+                if mid and mid.isdigit():
+                    result[str(row.get('Match ID', ''))] = int(mid)
+        return result
+    except Exception as e:
+        print(f'  ⚠ get_poll_message_ids failed: {e}')
+        return {}
+
+
+def log_sent(gc, match_id, notif_type, poll_id='', message_id='', match_datetime=''):
     """Log a sent notification to Google Sheets."""
     if not gc:
         return
@@ -128,7 +148,7 @@ def log_sent(gc, match_id, notif_type, poll_id='', match_datetime=''):
         sh = gc.open_by_key(SHEET_ID)
         ws = sh.worksheet('Sent Log')
         now_str = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
-        ws.append_row([match_id, notif_type, poll_id, now_str, match_datetime, 'TEST' if TEST_MODE else 'PROD'])
+        ws.append_row([match_id, notif_type, poll_id, str(message_id), now_str, match_datetime, 'TEST' if TEST_MODE else 'PROD'])
         print(f'  ✅ Logged to Sheets: {match_id}::{notif_type}')
     except Exception as e:
         print(f'  ⚠ Sheets log_sent failed: {e}')
@@ -450,8 +470,9 @@ def main():
     # ── Step 2: Process updates (new joins + poll answers) ──────────────────────
     collect_updates(gc, match_lookup, player_ids)
 
-    # ── Step 2: Send scheduled polls / reminders ───────────────────────────────
-    sent_log = get_sent_log(gc)
+    # ── Step 3: Send scheduled polls / reminders ───────────────────────────────
+    sent_log        = get_sent_log(gc)
+    poll_msg_ids    = get_poll_message_ids(gc)   # {match_id: message_id} for reply-to
     now_ist  = datetime.datetime.now(IST)
 
     print(f'\n⏰ Poll Bot running at {now_ist.strftime("%d %b %Y %H:%M IST")}')
@@ -490,7 +511,8 @@ def main():
             ta, tb = match['team_a'], match['team_b']
             print(f'  📨 [{notif_type}] {match["id"]} — {ta} vs {tb}  (in {diff_min:.0f} min)')
 
-            poll_id = ''
+            poll_id    = ''
+            message_id = ''
 
             if notif_type == 'poll':
                 # Step 1: Send caption/context message
@@ -512,19 +534,28 @@ def main():
                     'allows_multiple_answers': False,
                     'protect_content':       False,
                 })
-                result = resp.get('result', {})
-                poll_id = result.get('poll', {}).get('id', '')
+                result     = resp.get('result', {})
+                poll_id    = result.get('poll', {}).get('id', '')
+                message_id = str(result.get('message_id', ''))
+                # Cache immediately so same-run reminders can use it
+                if message_id:
+                    poll_msg_ids[match['id']] = int(message_id)
 
             else:
                 msg = build_reminder(match, notif_type)
                 if msg:
-                    tg('sendMessage', {
+                    payload = {
                         'chat_id':    CHAT_ID,
                         'text':       msg,
                         'parse_mode': 'Markdown',
-                    })
+                    }
+                    # Reply to the original poll so players can tap to jump straight to it
+                    reply_id = poll_msg_ids.get(match['id'])
+                    if reply_id:
+                        payload['reply_to_message_id'] = reply_id
+                    tg('sendMessage', payload)
 
-            log_sent(gc, match['id'], notif_type, poll_id, match['datetime_ist'])
+            log_sent(gc, match['id'], notif_type, poll_id, message_id, match['datetime_ist'])
             sent_count += 1
 
     if sent_count == 0:
