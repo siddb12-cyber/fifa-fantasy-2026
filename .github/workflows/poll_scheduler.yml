@@ -20,6 +20,10 @@ on:
         description: 'Match ID to force send (e.g. T001, T002). Leave blank for first match.'
         type: string
         default: ''
+      trial_mode:
+        description: 'Trial mode? (uses trial_matches.json with preponed real match dates)'
+        type: boolean
+        default: false
 
 jobs:
   send-polls:
@@ -47,4 +51,5 @@ jobs:
           TEST_MODE:               ${{ github.event.inputs.test_mode || 'true' }}
           FORCE_SEND:              ${{ github.event.inputs.force_send || 'false' }}
           FORCE_MATCH:             ${{ github.event.inputs.force_match || '' }}
+          TRIAL_MODE:              ${{ github.event.inputs.trial_mode || 'false' }}
         run: python scripts/poll_bot.py

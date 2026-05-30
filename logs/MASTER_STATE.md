@@ -7,11 +7,11 @@
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Phase 1 — Avatar Creation | ⚠️ RUN NEEDED | Old (non-cartoon) PNGs exist. Run `scripts/run_avatars.bat` to regenerate with OpenCV cartoon effect |
-| Phase 2 — Google Sheets Setup | ⚠️ RUN NEEDED | setup_sheets.py fixed (Sheets API fallback, no Drive API required). Run it now. |
-| Phase 3 — WhatsApp Poll Automation | ✅ BUILT | `scripts/poll_scheduler.py`. Needs football-data.org API key. Group: "FIFA 26 Test Group" |
+| Phase 1 — Avatar Creation | ✅ DONE | Gemini-generated cartoon avatars live on dashboard |
+| Phase 2 — Google Sheets Setup | ✅ DONE | Main sheet ID: 18SfYYXYaGxvh-2bZIq_h4dOXfS7YtD5c49nW454MY2o. All 6 tabs + 104 matches populated. |
+| Phase 3 — Telegram Poll Bot | ✅ LIVE | `scripts/poll_bot.py` on GitHub Actions. Group: "FIFA World Cup Fantasy". Sheet-based player ID mapping. |
 | Phase 4 — Dashboard (GitHub Pages) | ✅ LIVE v3 | Unified aurora UI, Golden Glove + Playmaker added, country refs removed. https://siddb12-cyber.github.io/fifa-fantasy-2026/ |
-| Phase 5 — Windows Task Scheduler | ✅ BUILT | `scripts/setup_scheduler.bat` — run as Admin after Sheets setup |
+| Phase 5 — Windows Task Scheduler | ⏭️ SKIPPED | Replaced by GitHub Actions (runs 24/7, no local machine needed) |
 | Phase 6 — Demo Mode | ✅ LIVE | Portugal 2-1 Argentina demo match live on GitHub Pages |
 
 ---
@@ -61,23 +61,22 @@ FIFA World Cup Fantasy Game/
 
 ---
 
-## Pending Actions (User Must Do)
+## Pending Actions (Before June 12)
 
-1. **🎨 REGENERATE CARTOON AVATARS** → Run `scripts/run_avatars.bat` (double-click) — replaces old photos with OpenCV cartoon cards
-2. **📊 SET UP GOOGLE SHEETS** → Run `python scripts/setup_sheets.py` — fixed 403 error (now uses Sheets API fallback, no Drive API needed)
-3. **🔑 Set football-data.org API key** → Register free at football-data.org → edit `poll_scheduler.py` + `stats_fetcher.py` → set `FOOTBALL_KEY = "your_key"`
-4. **🌐 Enable GitHub Pages** → github.com/siddb12-cyber/fifa-fantasy-2026 → Settings → Pages → Source: main / root → Save
-5. **📤 Push redesigned dashboard** → Run `scripts/push_dashboard.bat` to push all v2 redesigns to GitHub Pages
-6. **⚙️ Register Task Scheduler** → Run `scripts/setup_scheduler.bat` as Administrator (after Sheets setup)
-7. **💬 Update WhatsApp group** → When real group created, edit `poll_scheduler.py` → `WA_GROUP = "real group name"`
+1. **🎨 REGENERATE CARTOON AVATARS** → Run `scripts/run_avatars.bat` — replaces old photos with OpenCV cartoon cards
+2. **👥 ADD 7 PLAYERS TO TELEGRAM GROUP** → Share invite link → they join → open "Player IDs" sheet → fill Pet Name column for each
+3. **🚀 GO LIVE ON JUNE 12** → GitHub Actions → Poll Scheduler → Run workflow → set `TEST_MODE = false`, `FORCE_SEND = false`
 
 ### ✅ Completed Actions
 - google_credentials.json placed at `C:/Users/siddh/Downloads/HK/FIFA/`
-- All 8 player DPs uploaded to `C:/Users/siddh/Downloads/HK/FIFA/assets/avatars/`
-- GitHub repo created and all files pushed to `main` branch
-- All Python dependencies installed
-- Avatars generated (16 PNG files)
-- Demo dashboard built and deployed
+- All 8 player DPs uploaded and avatars generated (16 PNG files)
+- GitHub repo created, all files pushed, GitHub Pages live
+- Telegram bot (@fifafantasycircle_bot) working in "FIFA World Cup Fantasy" group
+- Google Sheets main sheet set up (ID: 18SfYYXYaGxvh-2bZIq_h4dOXfS7YtD5c49nW454MY2o) — 104 matches, all tabs
+- Poll answer collection via getUpdates — votes auto-recorded to Poll Responses sheet
+- Sheet-based player ID mapping — new members auto-logged, Sidhant maps pet names manually
+- matches.json (104 matches) generated for production mode
+- GitHub Secrets set: TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, GOOGLE_SHEET_ID, GOOGLE_CREDENTIALS_JSON, FOOTBALL_API_KEY
 
 ---
 

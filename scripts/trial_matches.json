@@ -1,0 +1,56 @@
+[
+  {
+    "id": "M001",
+    "stage": "Group A",
+    "datetime_ist": "31 May 2026 22:00",
+    "team_a": "Mexico",
+    "team_b": "S. Africa",
+    "venue": "SoFi Stadium",
+    "city": "Los Angeles"
+  },
+  {
+    "id": "M002",
+    "stage": "Group A",
+    "datetime_ist": "01 Jun 2026 20:00",
+    "team_a": "South Korea",
+    "team_b": "Czechia",
+    "venue": "AT&T Stadium",
+    "city": "Dallas"
+  },
+  {
+    "id": "M003",
+    "stage": "Group A",
+    "datetime_ist": "02 Jun 2026 20:00",
+    "team_a": "Mexico",
+    "team_b": "Czechia",
+    "venue": "Rose Bowl",
+    "city": "Los Angeles"
+  },
+  {
+    "id": "M004",
+    "stage": "Group A",
+    "datetime_ist": "03 Jun 2026 20:00",
+    "team_a": "S. Africa",
+    "team_b": "South Korea",
+    "venue": "NRG Stadium",
+    "city": "Houston"
+  },
+  {
+    "id": "M005",
+    "stage": "Group A",
+    "datetime_ist": "04 Jun 2026 20:00",
+    "team_a": "Czechia",
+    "team_b": "S. Africa",
+    "venue": "Estadio Azteca",
+    "city": "Mexico City"
+  },
+  {
+    "id": "M006",
+    "stage": "Group A",
+    "datetime_ist": "05 Jun 2026 20:00",
+    "team_a": "South Korea",
+    "team_b": "Mexico",
+    "venue": "Gillette Stadium",
+    "city": "Boston"
+  }
+]

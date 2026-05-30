@@ -23,6 +23,7 @@ GCP_CREDS = os.environ.get('GOOGLE_CREDENTIALS_JSON', '')   # base64-encoded JSO
 TEST_MODE = os.environ.get('TEST_MODE', 'true').lower() == 'true'
 FORCE       = os.environ.get('FORCE_SEND', 'false').lower() == 'true'   # bypass timing check
 FORCE_MATCH = os.environ.get('FORCE_MATCH', '').strip()               # specific match ID to force (e.g. T002)
+TRIAL_MODE  = os.environ.get('TRIAL_MODE',  'false').lower() == 'true' # use trial_matches.json
 
 PLAYERS_ALL = ['Budhya', 'Ambu', 'Vini', 'Baby', 'Abs', 'Anna', 'Umaga', 'PR']
 
@@ -428,7 +429,12 @@ def main():
         return
 
     # Load match schedule
-    schedule_file = 'scripts/test_matches.json' if TEST_MODE else 'scripts/matches.json'
+    if TRIAL_MODE:
+        schedule_file = 'scripts/trial_matches.json'
+    elif TEST_MODE:
+        schedule_file = 'scripts/test_matches.json'
+    else:
+        schedule_file = 'scripts/matches.json'
     with open(schedule_file) as f:
         matches = json.load(f)
 
