@@ -442,6 +442,184 @@ def collect_updates(gc, match_lookup, player_ids):
     print(f'  ✅ {new_votes} vote(s) recorded. Offset saved: {max_uid}')
 
 
+# ── AUTO-SCORING ──────────────────────────────────────────────────────────────
+def get_correct_answer(score_a, score_b, team_a, team_b):
+    """Derive the correct poll answer from match scores."""
+    try:
+        sa, sb = int(score_a), int(score_b)
+    except (ValueError, TypeError):
+        return None
+    if sa > sb:
+        return f'{team_a} wins'
+    elif sb > sa:
+        return f'{team_b} wins'
+    else:
+        return 'Draw'
+
+
+def score_completed_matches(gc, match_lookup):
+    """
+    Auto-scores all completed matches in Full Schedule.
+    For each completed match:
+      - Reads Score A / Score B → derives correct answer
+      - Fills 'Correct Answer' + 'Points Awarded' for all existing Poll Response rows
+      - Adds MISSED rows (−2 pts) for players who never voted
+      - Updates Leaderboard totals
+    Only processes rows where 'Correct Answer' is still blank (idempotent).
+    """
+    if not gc:
+        return
+    try:
+        sh       = gc.open_by_key(SHEET_ID)
+        sched_ws = sh.worksheet('Full Schedule')
+        resp_ws  = sh.worksheet('Poll Responses')
+    except Exception as e:
+        print(f'  ⚠ score_completed_matches: sheet open failed: {e}')
+        return
+
+    schedule = sched_ws.get_all_records()
+    resp_rows = resp_ws.get_all_values()   # raw, including header
+    if not resp_rows:
+        return
+    header    = resp_rows[0]
+    # Column indices (0-based)
+    try:
+        col_mid     = header.index('Match ID')
+        col_answer  = header.index('Their Answer')
+        col_correct = header.index('Correct Answer')
+        col_pts     = header.index('Points Awarded')
+    except ValueError as e:
+        print(f'  ⚠ Poll Responses header missing column: {e}')
+        return
+
+    ts = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
+    scored_matches = 0
+
+    for match in schedule:
+        status  = str(match.get('Status', '')).strip()
+        score_a = str(match.get('Score A', '')).strip()
+        score_b = str(match.get('Score B', '')).strip()
+        mid     = str(match.get('Match ID', '')).strip()
+
+        if status != 'Completed' or not score_a or not score_b or not mid:
+            continue
+
+        info    = match_lookup.get(mid, {})
+        team_a  = info.get('team_a') or match.get('Team A', '')
+        team_b  = info.get('team_b') or match.get('Team B', '')
+        correct = get_correct_answer(score_a, score_b, team_a, team_b)
+        if not correct:
+            print(f'  ⚠ Could not derive correct answer for {mid} (scores: {score_a}-{score_b})')
+            continue
+
+        # Find all response rows for this match (1-based row numbers in sheet)
+        voted_players = set()
+        rows_to_update = []   # (sheet_row_number, correct_answer, points)
+
+        for i, row in enumerate(resp_rows[1:], start=2):   # row 2 onwards
+            if len(row) <= max(col_mid, col_correct):
+                continue
+            if row[col_mid] != mid:
+                continue
+            # Only score if Correct Answer is blank (avoid re-scoring)
+            if str(row[col_correct]).strip():
+                voted_players.add(row[col_answer].replace(' wins', '').strip() if False else
+                                  # just track the player name from a parallel col
+                                  row[header.index('Player Name')] if 'Player Name' in header else '')
+                # Still track who voted even if already scored
+                if 'Player Name' in header:
+                    voted_players.add(row[header.index('Player Name')])
+                continue
+
+            player_name = row[header.index('Player Name')] if 'Player Name' in header else ''
+            their_ans   = str(row[col_answer]).strip()
+            pts         = 3 if their_ans == correct else 0
+            rows_to_update.append((i, correct, pts, player_name))
+            voted_players.add(player_name)
+
+        # Batch-update scored rows
+        for (row_num, correct_ans, pts, _) in rows_to_update:
+            try:
+                resp_ws.update_cell(row_num, col_correct + 1, correct_ans)
+                resp_ws.update_cell(row_num, col_pts + 1, pts)
+            except Exception as e:
+                print(f'  ⚠ Failed to update row {row_num}: {e}')
+
+        # Add MISSED rows for players who never voted
+        for player in PLAYERS_ALL:
+            if player not in voted_players:
+                match_name = f'{team_a} vs {team_b}'
+                try:
+                    resp_ws.append_row([mid, match_name, player, 'MISSED', correct, -2, ts])
+                    print(f'  📋 MISSED: {player} → {mid} (−2 pts)')
+                except Exception as e:
+                    print(f'  ⚠ Failed to add MISSED row for {player}: {e}')
+
+        if rows_to_update:
+            print(f'  ✅ Scored {len(rows_to_update)} vote(s) for {mid} | Correct: {correct}')
+        scored_matches += 1
+
+    if scored_matches:
+        update_leaderboard(gc)
+
+
+def update_leaderboard(gc):
+    """Re-derive leaderboard totals from Poll Responses and update Leaderboard tab."""
+    if not gc:
+        return
+    try:
+        sh      = gc.open_by_key(SHEET_ID)
+        resp_ws = sh.worksheet('Poll Responses')
+        lb_ws   = sh.worksheet('Leaderboard')
+    except Exception as e:
+        print(f'  ⚠ update_leaderboard: sheet open failed: {e}')
+        return
+
+    rows = resp_ws.get_all_records()
+    totals = {p: {'total': 0, 'correct': 0, 'wrong': 0, 'missed': 0} for p in PLAYERS_ALL}
+
+    for row in rows:
+        player = str(row.get('Player Name', '')).strip()
+        if player not in totals:
+            continue
+        pts       = int(row.get('Points Awarded') or 0)
+        their_ans = str(row.get('Their Answer', '')).strip()
+        totals[player]['total'] += pts
+        if pts == 3:
+            totals[player]['correct'] += 1
+        elif their_ans == 'MISSED':
+            totals[player]['missed'] += 1
+        else:
+            totals[player]['wrong'] += 1
+
+    lb_rows = lb_ws.get_all_records()
+    ts      = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
+
+    for i, row in enumerate(lb_rows):
+        player  = str(row.get('Player', '')).strip()
+        if player not in totals:
+            continue
+        d       = totals[player]
+        row_num = i + 2   # 1-based + header row
+        try:
+            lb_ws.update(f'D{row_num}:I{row_num}', [[
+                d['total'], d['correct'], d['wrong'], d['missed'], '—', ts
+            ]])
+        except Exception as e:
+            print(f'  ⚠ Failed to update leaderboard row for {player}: {e}')
+
+    # Re-rank by total points
+    lb_all = lb_ws.get_all_records()
+    ranked = sorted(enumerate(lb_all, start=2), key=lambda x: -int(x[1].get('Total Points', 0) or 0))
+    for rank, (row_num, _) in enumerate(ranked, start=1):
+        try:
+            lb_ws.update_cell(row_num, 1, rank)
+        except Exception as e:
+            print(f'  ⚠ Failed to update rank: {e}')
+
+    print(f'  ✅ Leaderboard updated.')
+
+
 # ── MAIN LOOP ─────────────────────────────────────────────────────────────────
 def main():
     if not TOKEN or not CHAT_ID:
@@ -470,7 +648,11 @@ def main():
     # ── Step 2: Process updates (new joins + poll answers) ──────────────────────
     collect_updates(gc, match_lookup, player_ids)
 
-    # ── Step 3: Send scheduled polls / reminders ───────────────────────────────
+    # ── Step 3: Auto-score completed matches → update leaderboard ──────────────
+    print('\n🏆 Checking for completed matches to score...')
+    score_completed_matches(gc, match_lookup)
+
+    # ── Step 4: Send scheduled polls / reminders ───────────────────────────────
     sent_log        = get_sent_log(gc)
     poll_msg_ids    = get_poll_message_ids(gc)   # {match_id: message_id} for reply-to
     now_ist  = datetime.datetime.now(IST)

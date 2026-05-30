@@ -26,6 +26,7 @@ jobs:
         run: pip install requests gspread google-auth pytz
 
       - name: Fetch live stats from football-data.org
+        continue-on-error: true
         env:
           FOOTBALL_API_KEY:        ${{ secrets.FOOTBALL_API_KEY }}
           GOOGLE_SHEET_ID:         ${{ secrets.GOOGLE_SHEET_ID }}
