@@ -23,7 +23,7 @@ on:
       trial_mode:
         description: 'Trial mode? (uses trial_matches.json with preponed real match dates)'
         type: boolean
-        default: false
+        default: true
 
 jobs:
   send-polls:
