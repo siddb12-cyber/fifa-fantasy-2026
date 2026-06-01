@@ -36,8 +36,9 @@ NOTIFS = [
     ('r6h',   6  * 60),
     ('r3h',   3  * 60),
     ('r90m',  90),
+    ('close', 60),        # stop poll 60 min before kickoff — no late votes
 ]
-WINDOW = 29  # tolerance window in minutes (matches GitHub Actions cron interval)
+WINDOW = 45  # tolerance window in minutes — wider than cron interval to survive GitHub Actions delays
 
 # ── FUNNY ROASTS (rotated randomly) ───────────────────────────────────────────
 ROASTS = [
@@ -582,6 +583,9 @@ def update_leaderboard(gc):
         player = str(row.get('Player Name', '')).strip()
         if player not in totals:
             continue
+        # Skip rows where result hasn't been declared yet (Correct Answer blank)
+        if not str(row.get('Correct Answer', '')).strip():
+            continue
         pts       = int(row.get('Points Awarded') or 0)
         their_ans = str(row.get('Their Answer', '')).strip()
         totals[player]['total'] += pts
@@ -650,7 +654,10 @@ def main():
 
     # ── Step 3: Auto-score completed matches → update leaderboard ──────────────
     print('\n🏆 Checking for completed matches to score...')
-    score_completed_matches(gc, match_lookup)
+    try:
+        score_completed_matches(gc, match_lookup)
+    except Exception as e:
+        print(f'  ⚠ score_completed_matches failed (non-fatal): {e}')
 
     # ── Step 4: Send scheduled polls / reminders ───────────────────────────────
     sent_log        = get_sent_log(gc)
@@ -722,6 +729,15 @@ def main():
                 # Cache immediately so same-run reminders can use it
                 if message_id:
                     poll_msg_ids[match['id']] = int(message_id)
+
+            elif notif_type == 'close':
+                # Stop the poll 60 min before kickoff — no votes accepted after this
+                reply_id = poll_msg_ids.get(match['id'])
+                if reply_id:
+                    tg('stopPoll', {'chat_id': CHAT_ID, 'message_id': reply_id})
+                    print(f'  🔒 Poll closed for {match["id"]} — {ta} vs {tb}')
+                else:
+                    print(f'  ⚠ No poll message ID found for {match["id"]} — cannot close poll')
 
             else:
                 msg = build_reminder(match, notif_type)
