@@ -773,3 +773,10 @@ def main():
             sent_count += 1
 
     if sent_count == 0:
+        print('  ✅ Nothing to send right now.')
+    else:
+        print(f'\n  ✅ Sent {sent_count} notification(s).')
+
+
+if __name__ == '__main__':
+    main()
