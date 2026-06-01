@@ -458,15 +458,11 @@ def get_correct_answer(score_a, score_b, team_a, team_b):
         return 'Draw'
 
 
-def score_completed_matches(gc, match_lookup):
+def score_completed_matches(gc, match_lookup, sent_log):
     """
     Auto-scores all completed matches in Full Schedule.
-    For each completed match:
-      - Reads Score A / Score B → derives correct answer
-      - Fills 'Correct Answer' + 'Points Awarded' for all existing Poll Response rows
-      - Adds MISSED rows (−2 pts) for players who never voted
-      - Updates Leaderboard totals
-    Only processes rows where 'Correct Answer' is still blank (idempotent).
+    Skips matches already logged as 'scored' in Sent Log — zero API calls overhead.
+    Only calls update_leaderboard() when something actually changed.
     """
     if not gc:
         return
@@ -503,6 +499,10 @@ def score_completed_matches(gc, match_lookup):
         mid     = str(match.get('Match ID', '')).strip()
 
         if status != 'Completed' or not score_a or not score_b or not mid:
+            continue
+
+        # Already fully scored — skip entirely (no API calls)
+        if f'{mid}::scored' in sent_log:
             continue
 
         info    = match_lookup.get(mid, {})
@@ -556,9 +556,25 @@ def score_completed_matches(gc, match_lookup):
                 except Exception as e:
                     print(f'  ⚠ Failed to add MISSED row for {player}: {e}')
 
-        if rows_to_update:
+        changes_made = bool(rows_to_update)
+
+        # Add MISSED rows for players who never voted
+        for player in PLAYERS_ALL:
+            if player not in voted_players:
+                match_name = f'{team_a} vs {team_b}'
+                try:
+                    resp_ws.append_row([mid, match_name, player, 'MISSED', correct, -2, ts])
+                    print(f'  📋 MISSED: {player} → {mid} (−2 pts)')
+                    changes_made = True
+                except Exception as e:
+                    print(f'  ⚠ Failed to add MISSED row for {player}: {e}')
+
+        if changes_made:
             print(f'  ✅ Scored {len(rows_to_update)} vote(s) for {mid} | Correct: {correct}')
-        scored_matches += 1
+            scored_matches += 1
+
+        # Log as fully scored so future runs skip it entirely
+        log_sent(gc, mid, 'scored')
 
     if scored_matches:
         update_leaderboard(gc)
@@ -652,15 +668,15 @@ def main():
     # ── Step 2: Process updates (new joins + poll answers) ──────────────────────
     collect_updates(gc, match_lookup, player_ids)
 
-    # ── Step 3: Auto-score completed matches → update leaderboard ──────────────
+    # ── Step 3: Load sent log + auto-score completed matches ──────────────────
+    sent_log = get_sent_log(gc)
     print('\n🏆 Checking for completed matches to score...')
     try:
-        score_completed_matches(gc, match_lookup)
+        score_completed_matches(gc, match_lookup, sent_log)
     except Exception as e:
         print(f'  ⚠ score_completed_matches failed (non-fatal): {e}')
 
     # ── Step 4: Send scheduled polls / reminders ───────────────────────────────
-    sent_log        = get_sent_log(gc)
     poll_msg_ids    = get_poll_message_ids(gc)   # {match_id: message_id} for reply-to
     now_ist  = datetime.datetime.now(IST)
 
@@ -757,10 +773,3 @@ def main():
             sent_count += 1
 
     if sent_count == 0:
-        print('  ✅ Nothing to send right now.')
-    else:
-        print(f'\n  ✅ Sent {sent_count} notification(s).')
-
-
-if __name__ == '__main__':
-    main()
