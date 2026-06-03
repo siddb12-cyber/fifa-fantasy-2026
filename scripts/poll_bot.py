@@ -546,16 +546,6 @@ def score_completed_matches(gc, match_lookup, sent_log):
             except Exception as e:
                 print(f'  ⚠ Failed to update row {row_num}: {e}')
 
-        # Add MISSED rows for players who never voted
-        for player in PLAYERS_ALL:
-            if player not in voted_players:
-                match_name = f'{team_a} vs {team_b}'
-                try:
-                    resp_ws.append_row([mid, match_name, player, 'MISSED', correct, -2, ts])
-                    print(f'  📋 MISSED: {player} → {mid} (−2 pts)')
-                except Exception as e:
-                    print(f'  ⚠ Failed to add MISSED row for {player}: {e}')
-
         changes_made = bool(rows_to_update)
 
         # Add MISSED rows for players who never voted
@@ -668,17 +658,12 @@ def main():
     # ── Step 2: Process updates (new joins + poll answers) ──────────────────────
     collect_updates(gc, match_lookup, player_ids)
 
-    # ── Step 3: Load sent log + auto-score completed matches ──────────────────
+    # ── Step 3: Load sent log (for deduplication) ─────────────────────────────
     sent_log = get_sent_log(gc)
-    print('\n🏆 Checking for completed matches to score...')
-    try:
-        score_completed_matches(gc, match_lookup, sent_log)
-    except Exception as e:
-        print(f'  ⚠ score_completed_matches failed (non-fatal): {e}')
 
-    # ── Step 4: Send scheduled polls / reminders ───────────────────────────────
-    poll_msg_ids    = get_poll_message_ids(gc)   # {match_id: message_id} for reply-to
-    now_ist  = datetime.datetime.now(IST)
+    # ── Step 4: Send scheduled polls / reminders (FIRST — must not be blocked) ─
+    poll_msg_ids = get_poll_message_ids(gc)   # {match_id: message_id} for reply-to
+    now_ist      = datetime.datetime.now(IST)
 
     print(f'\n⏰ Poll Bot running at {now_ist.strftime("%d %b %Y %H:%M IST")}')
     print(f'   Mode: {"🧪 TEST" if TEST_MODE else "🏆 PRODUCTION"}  |  Schedule: {len(matches)} matches\n')
@@ -776,6 +761,13 @@ def main():
         print('  ✅ Nothing to send right now.')
     else:
         print(f'\n  ✅ Sent {sent_count} notification(s).')
+
+    # ── Step 5: Auto-score completed matches (AFTER polls — slow, non-blocking) ─
+    print('\n🏆 Checking for completed matches to score...')
+    try:
+        score_completed_matches(gc, match_lookup, sent_log)
+    except Exception as e:
+        print(f'  ⚠ score_completed_matches failed (non-fatal): {e}')
 
 
 if __name__ == '__main__':
