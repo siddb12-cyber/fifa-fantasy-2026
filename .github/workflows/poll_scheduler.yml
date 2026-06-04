@@ -47,5 +47,5 @@ jobs:
           TEST_MODE:               'false'
           FORCE_SEND:              ${{ github.event.inputs.force_send || 'false' }}
           FORCE_MATCH:             ${{ github.event.inputs.force_match || '' }}
-          TRIAL_MODE:              ${{ github.event.inputs.trial_mode || 'true' }}
+          TRIAL_MODE:              'true'
         run: python scripts/poll_bot.py

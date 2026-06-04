@@ -380,8 +380,12 @@ def collect_updates(gc, match_lookup, player_ids):
         resp_ws.append_row(['Match ID', 'Match Name', 'Player Name',
                              'Their Answer', 'Correct Answer', 'Points Awarded', 'Timestamp'])
 
-    existing  = {f"{r['Match ID']}::{r['Player Name']}"
-                 for r in resp_ws.get_all_records() if r.get('Match ID')}
+    try:
+        existing = {f"{r['Match ID']}::{r['Player Name']}"
+                    for r in resp_ws.get_all_records() if r.get('Match ID')}
+    except Exception as e:
+        print(f'  ⚠ Could not load existing votes: {e}')
+        existing = set()
     new_votes = 0
     max_uid   = offset
 
@@ -656,7 +660,10 @@ def main():
     print(f'  👥 {len(player_ids)} player(s) mapped in sheet.')
 
     # ── Step 2: Process updates (new joins + poll answers) ──────────────────────
-    collect_updates(gc, match_lookup, player_ids)
+    try:
+        collect_updates(gc, match_lookup, player_ids)
+    except Exception as e:
+        print(f'  ⚠ collect_updates failed (non-fatal): {e}')
 
     # ── Step 3: Load sent log (for deduplication) ─────────────────────────────
     sent_log = get_sent_log(gc)
