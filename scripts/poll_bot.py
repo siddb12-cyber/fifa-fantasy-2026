@@ -745,7 +745,9 @@ def main():
                     tg('stopPoll', {'chat_id': CHAT_ID, 'message_id': reply_id})
                     print(f'  🔒 Poll closed for {match["id"]} — {ta} vs {tb}')
                 else:
-                    print(f'  ⚠ No poll message ID found for {match["id"]} — cannot close poll')
+                    # No poll was ever sent — skip logging so we don't block a future force-send close
+                    print(f'  ⚠ No poll message ID found for {match["id"]} — skipping close')
+                    continue
 
             else:
                 msg = build_reminder(match, notif_type)
