@@ -52,5 +52,23 @@
     "team_b": "Mexico",
     "venue": "Gillette Stadium",
     "city": "Boston"
+  },
+  {
+    "id": "M007",
+    "stage": "Group B",
+    "datetime_ist": "07 Jun 2026 19:00",
+    "team_a": "Portugal",
+    "team_b": "Morocco",
+    "venue": "Estadio Azteca",
+    "city": "Mexico City"
+  },
+  {
+    "id": "M008",
+    "stage": "Group B",
+    "datetime_ist": "08 Jun 2026 21:00",
+    "team_a": "Spain",
+    "team_b": "Germany",
+    "venue": "SoFi Stadium",
+    "city": "Los Angeles"
   }
 ]
