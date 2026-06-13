@@ -1,0 +1,75 @@
+# Dependencies & package managers
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+site-packages/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Git internals
+.git/
+
+# Logs
+logs/
+*.log
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editor
+.vscode/
+.idea/
+*.suo
+*.user
+*.swp
+*.swo
+*~
+
+# Credentials & secrets
+google_credentials.json
+*.pem
+*.key
+.env
+.env.*
+
+# Large binary / media assets
+assets/animations/*.gif
+assets/avatars/*.jpeg
+assets/avatars/*.jpg
+assets/avatars/*.png
+
+# Generated HTML (rebuilt from Sheets by dashboard_builder.py)
+index.html
+stats.html
+schedule.html
+match/*.html
+
+# Calendar export
+*.ics
+
+# Scratch / temp
+"New Text Document.txt"
+*.tmp
+*.bak
+
+# GitHub Actions (rarely needs reading)
+.github/
+
+# JSON match data (large, machine-generated)
+scripts/matches.json

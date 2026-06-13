@@ -16,6 +16,9 @@ import os, sys, json, re, base64, tempfile, subprocess
 import datetime
 from pathlib import Path
 
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 import gspread, pytz
 from google.oauth2.service_account import Credentials
 
@@ -37,6 +40,7 @@ PLAYERS_META = {
     'Anna':   'Nishant Salian',
     'Umaga':  'Umang Budhkar',
     'PR':     'Pranav Raut',
+    'Ash':    'Ashish Biswas',
 }
 
 AVATAR_MAP = {
