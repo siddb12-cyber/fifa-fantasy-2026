@@ -136,6 +136,12 @@ def fetch_poll_responses(sh, match_id):
     return vote_counts, player_pts
 
 
+def fetch_player_stats(sh):
+    ws   = sh.worksheet('Player Stats')
+    rows = ws.get_all_records()
+    return rows
+
+
 def fetch_schedule(sh):
     ws   = sh.worksheet('Full Schedule')
     rows = ws.get_all_records()
@@ -184,12 +190,14 @@ def build_index(leaderboard):
     path.write_text(html, encoding='utf-8')
 
 
-def build_stats(leaderboard):
+def build_stats(leaderboard, player_stats=None):
     path = DASH_DIR / 'stats.html'
     if not path.exists():
         return
     html = path.read_text(encoding='utf-8')
     html = inject_data(html, 'LEADERBOARD', leaderboard)
+    if player_stats is not None:
+        html = inject_data(html, 'PLAYER_STATS', player_stats)
     path.write_text(html, encoding='utf-8')
 
 
@@ -257,12 +265,13 @@ def main():
     sh = connect_sheets()
 
     print('📊 Fetching data...')
-    leaderboard = fetch_leaderboard(sh)
-    schedule    = fetch_schedule(sh)
+    leaderboard  = fetch_leaderboard(sh)
+    schedule     = fetch_schedule(sh)
+    player_stats = fetch_player_stats(sh)
 
     print('🏗 Building dashboard...')
     build_index(leaderboard)
-    build_stats(leaderboard)
+    build_stats(leaderboard, player_stats)
     build_schedule_page(schedule)
     build_match_pages(sh, schedule)
 

@@ -65,6 +65,17 @@ TEAM_ALIASES = {
 LIVE_STATUSES     = {'IN_PLAY', 'PAUSED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT'}
 FINISHED_STATUSES = {'FINISHED', 'AWARDED'}
 
+POS_MAP = {
+    'Goalkeeper': 'GK',
+    'Defender':   'DEF',
+    'Defence':    'DEF',
+    'Midfielder': 'MID',
+    'Midfield':   'MID',
+    'Forward':    'FWD',
+    'Attacker':   'FWD',
+    'Offence':    'FWD',
+}
+
 
 def normalise(name: str) -> str:
     """Resolve an API team name to the sheet's short name."""
@@ -144,37 +155,66 @@ def update_team_stats(sh):
 
 # ── PLAYER STATS ──────────────────────────────────────────────────────────────
 def update_player_stats(sh):
+    """Fetch all WC squads + top-scorer stats and write to Player Stats tab."""
     print('Updating player stats...')
+
+    # 1. Scorers — goals/assists for top 100 players (one API call)
+    scorers_map = {}
     try:
-        data = fetch_json(f'{API_BASE}/competitions/{FIFA_COMP}/scorers?limit=20')
+        data = fetch_json(f'{API_BASE}/competitions/{FIFA_COMP}/scorers?limit=100')
+        for s in data.get('scorers', []):
+            pid = s.get('player', {}).get('id')
+            if pid:
+                scorers_map[pid] = {
+                    'goals':   s.get('goals', 0) or 0,
+                    'assists': s.get('assists', 0) or 0,
+                    'matches': s.get('playedMatches', 0) or 0,
+                }
+        print(f'  Scorers loaded: {len(scorers_map)}')
     except Exception as e:
         print(f'  [WARN] Could not fetch scorers: {e}')
+
+    # 2. All teams + squads — one API call returns all 32 squads inline
+    all_players = []
+    try:
+        time.sleep(2)
+        teams_data = fetch_json(f'{API_BASE}/competitions/{FIFA_COMP}/teams')
+        teams = teams_data.get('teams', [])
+        for team in teams:
+            tname = normalise(team.get('name', ''))
+            for p in team.get('squad', []):
+                pid    = p.get('id')
+                raw_pos = p.get('position', '') or ''
+                pos    = POS_MAP.get(raw_pos, raw_pos)
+                sc     = scorers_map.get(pid, {})
+                all_players.append({
+                    'Player':       p.get('name', ''),
+                    'Team':         tname,
+                    'Position':     pos,
+                    'Nationality':  p.get('nationality', ''),
+                    'Matches':      sc.get('matches', 0),
+                    'Goals':        sc.get('goals', 0),
+                    'Assists':      sc.get('assists', 0),
+                    'Yellow Cards': 0,
+                    'Red Cards':    0,
+                })
+        print(f'  Teams: {len(teams)}, Players: {len(all_players)}')
+    except Exception as e:
+        print(f'  [WARN] Could not fetch teams/squads: {e}')
+
+    if not all_players:
+        print('  [SKIP] No player data — sheet unchanged')
         return
+
+    # Sort: goals desc → assists desc → name asc
+    all_players.sort(key=lambda x: (-x['Goals'], -x['Assists'], x['Player']))
 
     ws = sh.worksheet('Player Stats')
     ws.clear()
-    header = [
-        'Player', 'Team', 'Matches', 'Goals', 'Assists',
-        'Yellow Cards', 'Red Cards', 'Minutes Played',
-        'xG', 'Pass Accuracy %', 'Key Passes', 'Dribbles',
-        'Fouls Won', 'Shots', 'Shots on Target', 'Match Rating (avg)',
-    ]
-    rows = [header]
-    for scorer in data.get('scorers', []):
-        player = scorer.get('player', {})
-        team   = scorer.get('team', {})
-        rows.append([
-            player.get('name', ''),
-            team.get('name', ''),
-            scorer.get('playedMatches', 0),
-            scorer.get('goals', 0),
-            scorer.get('assists', 0) or 0,
-            0, 0,
-            '—','—','—','—','—','—','—','—','—',
-        ])
-
+    header = ['Player', 'Team', 'Position', 'Nationality', 'Matches', 'Goals', 'Assists', 'Yellow Cards', 'Red Cards']
+    rows   = [header] + [[p[col] for col in header] for p in all_players]
     ws.update(values=rows, range_name='A1')
-    print(f'  [OK] Player stats: {len(rows)-1} players')
+    print(f'  [OK] Player stats: {len(rows)-1} players written')
 
 
 # ── FULL SCHEDULE + MATCH LOG ─────────────────────────────────────────────────
