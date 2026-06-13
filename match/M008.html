@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Match — FIFA Fantasy 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gold:#FFD700;--gold2:#FFA500;--bg:#080c18;--bg2:#0d1426;
+    --card:rgba(255,255,255,0.05);--border:rgba(255,215,0,0.18);
+    --glass:rgba(255,255,255,0.04);--text:#e8eaf0;--muted:#7a8299;
+    --green:#00e676;--red:#ff4444;--blue:#4fc3f7;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+  .bg-glow{position:fixed;inset:0;z-index:0;
+    background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(255,215,0,0.07) 0%,transparent 60%),
+    radial-gradient(ellipse 100% 80% at 50% 100%,rgba(8,12,24,0.9) 0%,#060810 100%);}
+  .grid-lines{position:fixed;inset:0;z-index:0;
+    background-image:linear-gradient(rgba(255,215,0,0.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,215,0,0.025) 1px,transparent 1px);
+    background-size:60px 60px;}
+
+  /* NAV */
+  nav{position:sticky;top:0;z-index:100;background:rgba(8,12,24,0.92);
+    backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 24px;}
+  .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:8px;height:60px;}
+  .nav-brand{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;
+    background:linear-gradient(135deg,var(--gold),var(--gold2));-webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;letter-spacing:2px;margin-right:auto;}
+  .nav-link{color:var(--muted);text-decoration:none;padding:8px 14px;border-radius:8px;
+    font-size:.82rem;font-weight:500;transition:.2s;}
+  .nav-link:hover{color:var(--gold);background:rgba(255,215,0,0.08);}
+  .nav-back{display:flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;
+    font-size:.85rem;padding:6px 12px;border-radius:8px;border:1px solid var(--border);
+    transition:.2s;margin-right:12px;}
+  .nav-back:hover{color:var(--gold);border-color:var(--gold);}
+
+  /* HERO — SCOREBOARD */
+  .match-hero{position:relative;z-index:1;padding:48px 24px 0;}
+  .hero-inner{max-width:1100px;margin:0 auto;}
+  .match-meta{text-align:center;margin-bottom:24px;}
+  .match-meta .stage{font-family:'Rajdhani',sans-serif;font-size:.85rem;color:var(--gold);
+    letter-spacing:2px;text-transform:uppercase;}
+  .match-meta .info{font-size:.82rem;color:var(--muted);margin-top:4px;}
+  .scoreboard{display:flex;align-items:center;justify-content:center;gap:32px;
+    background:var(--card);border:1px solid var(--border);border-radius:24px;
+    padding:36px;backdrop-filter:blur(20px);margin-bottom:32px;position:relative;}
+  .scoreboard::before{content:'';position:absolute;inset:0;border-radius:24px;
+    background:linear-gradient(135deg,rgba(255,215,0,0.06),transparent);pointer-events:none;}
+  .sb-team{text-align:center;flex:1;}
+  .sb-flag{font-size:3.5rem;line-height:1;margin-bottom:12px;}
+  .sb-name{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:3px;}
+  .sb-fantasy{display:inline-block;margin-top:6px;background:rgba(255,215,0,0.12);
+    border:1px solid rgba(255,215,0,0.3);border-radius:20px;padding:3px 10px;
+    font-size:.72rem;color:var(--gold);font-weight:600;}
+  .sb-score-wrap{text-align:center;min-width:160px;}
+  .sb-score{font-family:'Bebas Neue',sans-serif;font-size:5rem;line-height:1;
+    background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;letter-spacing:8px;}
+  .sb-status{display:inline-block;margin-top:8px;padding:4px 14px;border-radius:20px;
+    font-size:.75rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+  .sb-status.upcoming{background:rgba(79,195,247,0.15);color:var(--blue);border:1px solid rgba(79,195,247,0.3);}
+  .sb-status.live{background:rgba(0,230,118,0.15);color:var(--green);border:1px solid rgba(0,230,118,0.3);
+    animation:pulse 1.5s infinite;}
+  .sb-status.completed{background:rgba(255,215,0,0.15);color:var(--gold);border:1px solid rgba(255,215,0,0.3);}
+  .sb-kickoff{margin-top:10px;font-size:.85rem;color:var(--muted);}
+  .sb-countdown{font-family:'Rajdhani',sans-serif;font-size:1.1rem;color:var(--gold);margin-top:4px;font-weight:700;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+
+  /* VOTE BAR */
+  .vote-section{max-width:1100px;margin:0 auto 32px;padding:0 24px;}
+  .vote-card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:24px;backdrop-filter:blur(10px);}
+  .vote-title{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;
+    color:var(--gold);margin-bottom:16px;text-align:center;}
+  .vote-bars{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;}
+  .vote-team-bar{display:flex;flex-direction:column;gap:6px;}
+  .vote-team-bar.right{align-items:flex-end;}
+  .vt-label{font-size:.82rem;color:var(--muted);font-weight:600;}
+  .vt-bar-row{display:flex;align-items:center;gap:8px;}
+  .vt-bar-row.right{flex-direction:row-reverse;}
+  .vt-bar-bg{flex:1;height:10px;background:rgba(255,255,255,0.08);border-radius:5px;overflow:hidden;}
+  .vt-bar-fill{height:100%;border-radius:5px;transition:width .8s ease;}
+  .vt-bar-fill.team-a{background:linear-gradient(90deg,var(--gold),var(--gold2));}
+  .vt-bar-fill.team-b{background:linear-gradient(90deg,var(--blue),#0288d1);}
+  .vt-bar-fill.draw{background:linear-gradient(90deg,#9c27b0,#673ab7);}
+  .vt-pct{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;min-width:40px;text-align:center;}
+  .vote-draw{text-align:center;}
+  .vd-label{font-size:.75rem;color:var(--muted);margin-bottom:4px;}
+  .vd-pct{font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#9c27b0;}
+
+  /* MAIN GRID */
+  .main-grid{max-width:1100px;margin:0 auto;padding:0 24px 80px;
+    display:grid;grid-template-columns:1fr 360px;gap:24px;}
+  @media(max-width:860px){.main-grid{grid-template-columns:1fr;}}
+
+  /* PLAYER POINTS */
+  .section-title{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:2px;
+    color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+  .section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+  .player-pts-grid{display:flex;flex-direction:column;gap:10px;}
+  .pp-card{display:flex;align-items:center;gap:14px;background:var(--card);
+    border:1px solid var(--border);border-radius:14px;padding:16px 18px;
+    backdrop-filter:blur(10px);transition:.2s;}
+  .pp-card:hover{border-color:rgba(255,215,0,0.3);}
+  .pp-card.winner{border-color:rgba(0,230,118,0.4);background:rgba(0,230,118,0.05);}
+  .pp-card.missed-card{border-color:rgba(122,130,153,0.2);opacity:.7;}
+  .pp-rank{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--muted);min-width:28px;}
+  .pp-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;
+    border:2px solid var(--border);background:var(--bg2);}
+  .pp-flag{font-size:1.6rem;line-height:1;}
+  .pp-info{flex:1;}
+  .pp-name{font-weight:700;font-size:.95rem;}
+  .pp-team{font-size:.75rem;color:var(--muted);}
+  .pp-answer{margin-top:3px;}
+  .pp-pts{font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;min-width:44px;text-align:right;}
+  .pp-pts.pos{color:var(--green);}
+  .pp-pts.neg{color:var(--red);}
+  .pp-pts.zero{color:var(--muted);}
+  .ans-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600;}
+  .ans-pill.correct{background:rgba(0,230,118,0.15);color:var(--green);}
+  .ans-pill.wrong{background:rgba(255,68,68,0.15);color:var(--red);}
+  .ans-pill.missed{background:rgba(122,130,153,0.15);color:var(--muted);}
+
+  /* SIDEBAR */
+  .sidebar{display:flex;flex-direction:column;gap:20px;}
+  .info-card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:20px;backdrop-filter:blur(10px);}
+  .info-row{display:flex;justify-content:space-between;align-items:center;
+    padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:.85rem;}
+  .info-row:last-child{border-bottom:none;}
+  .info-row .lbl{color:var(--muted);}
+  .info-row .val{font-weight:600;text-align:right;}
+
+  /* UPCOMING NOTICE */
+  .upcoming-notice{text-align:center;padding:40px 20px;}
+  .upcoming-notice .big{font-size:3rem;margin-bottom:12px;}
+  .upcoming-notice h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:3px;
+    color:var(--gold);margin-bottom:8px;}
+  .upcoming-notice p{color:var(--muted);font-size:.9rem;}
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="grid-lines"></div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-back">← Back</a>
+    <span class="nav-brand">⚽ FIFA FANTASY 2026</span>
+    <a href="../schedule.html" class="nav-link">📅 Schedule</a>
+    <a href="../stats.html" class="nav-link">📊 Stats</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="match-hero">
+  <div class="hero-inner">
+    <div class="match-meta">
+      <div class="stage" id="m-stage">Loading...</div>
+      <div class="info" id="m-info">—</div>
+    </div>
+    <div class="scoreboard">
+      <div class="sb-team">
+        <div class="sb-flag" id="m-flag-a">🏳️</div>
+        <div class="sb-name" id="m-team-a">Team A</div>
+        <div id="m-fantasy-a" style="margin-top:6px;"></div>
+      </div>
+      <div class="sb-score-wrap">
+        <div class="sb-score" id="m-score">? - ?</div>
+        <div class="sb-status upcoming" id="m-status">Upcoming</div>
+        <div class="sb-kickoff" id="m-kickoff">—</div>
+        <div class="sb-countdown" id="m-countdown"></div>
+      </div>
+      <div class="sb-team">
+        <div class="sb-flag" id="m-flag-b">🏳️</div>
+        <div class="sb-name" id="m-team-b">Team B</div>
+        <div id="m-fantasy-b" style="margin-top:6px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VOTE BAR -->
+<div class="vote-section" id="vote-section" style="display:none;">
+  <div class="vote-card">
+    <div class="vote-title">🗳️ Fantasy Poll Results</div>
+    <div class="vote-bars">
+      <div class="vote-team-bar">
+        <div class="vt-label" id="vb-name-a">Team A</div>
+        <div class="vt-bar-row">
+          <div class="vt-bar-bg"><div class="vt-bar-fill team-a" id="vb-bar-a" style="width:0%"></div></div>
+          <div class="vt-pct" id="vb-pct-a">0%</div>
+        </div>
+      </div>
+      <div class="vote-draw">
+        <div class="vd-label">Draw</div>
+        <div class="vd-pct" id="vb-pct-draw">0%</div>
+      </div>
+      <div class="vote-team-bar right">
+        <div class="vt-label" id="vb-name-b">Team B</div>
+        <div class="vt-bar-row right">
+          <div class="vt-bar-bg"><div class="vt-bar-fill team-b" id="vb-bar-b" style="width:0%"></div></div>
+          <div class="vt-pct" id="vb-pct-b">0%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="main-grid">
+
+  <!-- LEFT: PLAYER POINTS -->
+  <div>
+    <div class="section-title">🎯 Fantasy Points Breakdown</div>
+    <div class="player-pts-grid" id="player-pts-grid">
+      <div class="upcoming-notice" id="upcoming-notice">
+        <div class="big">⏳</div>
+        <h2>POLL OPEN</h2>
+        <p>Results will appear here once the match is played</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: SIDEBAR -->
+  <div class="sidebar">
+    <div>
+      <div class="section-title">ℹ️ Match Info</div>
+      <div class="info-card" id="info-card">
+        <div class="info-row"><span class="lbl">Stage</span><span class="val" id="si-stage">—</span></div>
+        <div class="info-row"><span class="lbl">Date</span><span class="val" id="si-date">—</span></div>
+        <div class="info-row"><span class="lbl">Venue</span><span class="val" id="si-venue">—</span></div>
+        <div class="info-row"><span class="lbl">City</span><span class="val" id="si-city">—</span></div>
+        <div class="info-row"><span class="lbl">Status</span><span class="val" id="si-status">—</span></div>
+      </div>
+    </div>
+    <div id="scoring-guide">
+      <div class="section-title">📖 Scoring</div>
+      <div class="info-card">
+        <div class="info-row"><span class="lbl">✅ Correct guess</span><span class="val" style="color:var(--green)">+3 pts</span></div>
+        <div class="info-row"><span class="lbl">❌ Wrong guess</span><span class="val" style="color:var(--muted)">0 pts</span></div>
+        <div class="info-row"><span class="lbl">💤 No answer</span><span class="val" style="color:var(--red)">−2 pts</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── DATA (injected by dashboard_builder.py) ───────────────────────────────────
+const MATCH = window.MATCH_DATA || {"id": "M008", "stage": "Group B", "date": "12 Jun 2026", "time": "04:00", "teamA": "Qatar", "teamB": "Switzerland", "venue": "BC Place", "city": "Vancouver", "status": "Live", "scoreA": null, "scoreB": null, "voteCounts": {"a": 9, "draw": 0, "b": 0}, "playerPoints": [{"player": "Budhya", "ans": "USA Wins", "pts": 3, "avatar": "assets/avatars/budhya_avatar.png"}, {"player": "Ambu", "ans": "USA Wins", "pts": 3, "avatar": "assets/avatars/ambu_avatar.png"}, {"player": "Vini", "ans": "USA Wins", "pts": 3, "avatar": "assets/avatars/vini_avatar.png"}, {"player": "Baby", "ans": "USA Wins", "pts": 3, "avatar": "assets/avatars/baby_avatar.png"}, {"player": "Abs", "ans": "USA Wins", "pts": 3, "avatar": "assets/avatars/abs_avatar.png"}, {"player": "Anna", "ans": "USA Wins", "pts": 3, "avatar": "assets/avatars/anna_avatar.png"}, {"player": "Umaga", "ans": "USA Wins", "pts": 3, "avatar": "assets/avatars/umaga_avatar.png"}, {"player": "PR", "ans": "USA Wins", "pts": 3, "avatar": "assets/avatars/pr_avatar.png"}, {"player": "Ash", "ans": "USA Wins", "pts": 3, "avatar": "assets/avatars/ash_avatar.png"}]},
+  playerPoints:[
+    {player:"Budhya",team:"Portugal",flag:"🇵🇹",ans:"Portugal",pts:3},
+    {player:"Anna",  team:"France",  flag:"🇫🇷",ans:"Portugal",pts:3},
+    {player:"Vini",  team:"England", flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",ans:"Portugal",pts:3},
+    {player:"Ambu",  team:"Argentina",flag:"🇦🇷",ans:"Argentina",pts:0},
+    {player:"Baby",  team:"Spain",   flag:"🇪🇸",ans:"Draw",pts:0},
+    {player:"Abs",   team:"Germany", flag:"🇩🇪",ans:"Argentina",pts:0},
+    {player:"Umaga", team:"Brazil",  flag:"🇧🇷",ans:"MISSED",pts:-2},
+    {player:"PR",    team:"Netherlands",flag:"🇳🇱",ans:"MISSED",pts:-2},
+  ],
+};
+
+// ── FANTASY TEAM MAP ──────────────────────────────────────────────────────────
+const FANTASY_MAP = {
+  Portugal:"Budhya",Argentina:"Ambu",England:"Vini",Spain:"Baby",
+  Germany:"Abs",France:"Anna",Brazil:"Umaga",Netherlands:"PR",
+};
+
+// ── RENDER HERO ───────────────────────────────────────────────────────────────
+function renderHero(){
+  document.getElementById('m-stage').textContent = MATCH.stage || '—';
+  document.getElementById('m-info').textContent = `${MATCH.venue} · ${MATCH.city}`;
+  document.getElementById('m-flag-a').textContent = MATCH.flagA || '🏳️';
+  document.getElementById('m-flag-b').textContent = MATCH.flagB || '🏳️';
+  document.getElementById('m-team-a').textContent = MATCH.teamA || '?';
+  document.getElementById('m-team-b').textContent = MATCH.teamB || '?';
+
+  const fa = FANTASY_MAP[MATCH.teamA], fb = FANTASY_MAP[MATCH.teamB];
+  if(fa) document.getElementById('m-fantasy-a').innerHTML = `<span style="display:inline-block;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.3);border-radius:20px;padding:3px 10px;font-size:.72rem;color:var(--gold);font-weight:600;">🎯 ${fa}</span>`;
+  if(fb) document.getElementById('m-fantasy-b').innerHTML = `<span style="display:inline-block;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.3);border-radius:20px;padding:3px 10px;font-size:.72rem;color:var(--gold);font-weight:600;">🎯 ${fb}</span>`;
+
+  const st = MATCH.status || 'Upcoming';
+  const scoreEl = document.getElementById('m-score');
+  if(st === 'Upcoming') scoreEl.textContent = '? — ?';
+  else scoreEl.textContent = `${MATCH.scoreA ?? '?'} — ${MATCH.scoreB ?? '?'}`;
+
+  const stEl = document.getElementById('m-status');
+  stEl.textContent = st;
+  stEl.className = 'sb-status ' + st.toLowerCase();
+
+  document.getElementById('m-kickoff').textContent = MATCH.date || '';
+
+  // Sidebar
+  document.getElementById('si-stage').textContent = MATCH.stage || '—';
+  document.getElementById('si-date').textContent = MATCH.date || '—';
+  document.getElementById('si-venue').textContent = MATCH.venue || '—';
+  document.getElementById('si-city').textContent = MATCH.city || '—';
+  document.getElementById('si-status').textContent = st;
+
+  // Countdown for upcoming matches
+  if(st === 'Upcoming' && MATCH.date){
+    startCountdown(MATCH.date);
+  }
+}
+
+// ── COUNTDOWN ─────────────────────────────────────────────────────────────────
+function startCountdown(dateStr){
+  const el = document.getElementById('m-countdown');
+  function tick(){
+    const now = new Date().getTime();
+    const then = new Date(dateStr + ' GMT+0530').getTime();
+    const diff = then - now;
+    if(diff <= 0){ el.textContent = 'Kickoff!'; return; }
+    const d = Math.floor(diff/86400000);
+    const h = Math.floor((diff%86400000)/3600000);
+    const m = Math.floor((diff%3600000)/60000);
+    const s = Math.floor((diff%60000)/1000);
+    el.textContent = d>0?`${d}d ${h}h ${m}m`:`${h}h ${m}m ${s}s`;
+    setTimeout(tick, 1000);
+  }
+  tick();
+}
+
+// ── VOTE BAR ──────────────────────────────────────────────────────────────────
+function renderVoteBar(){
+  const vc = MATCH.voteCounts;
+  if(!vc) return;
+  const total = (vc.a||0)+(vc.draw||0)+(vc.b||0);
+  if(!total) return;
+  document.getElementById('vote-section').style.display = 'block';
+  const pA = Math.round((vc.a||0)/total*100);
+  const pD = Math.round((vc.draw||0)/total*100);
+  const pB = 100-pA-pD;
+  document.getElementById('vb-name-a').textContent = MATCH.teamA || 'Team A';
+  document.getElementById('vb-name-b').textContent = MATCH.teamB || 'Team B';
+  document.getElementById('vb-bar-a').style.width = pA+'%';
+  document.getElementById('vb-bar-b').style.width = pB+'%';
+  document.getElementById('vb-pct-a').textContent = pA+'%';
+  document.getElementById('vb-pct-draw').textContent = pD+'%';
+  document.getElementById('vb-pct-b').textContent = pB+'%';
+}
+
+// ── PLAYER POINTS ─────────────────────────────────────────────────────────────
+function renderPlayerPoints(){
+  const pp = MATCH.playerPoints;
+  if(!pp || !pp.length) return;
+  document.getElementById('upcoming-notice').style.display = 'none';
+  const sorted = [...pp].sort((a,b)=>b.pts-a.pts);
+  const grid = document.getElementById('player-pts-grid');
+  grid.innerHTML = sorted.map((p,i)=>{
+    const imgSrc = `../assets/avatars/${p.player.toLowerCase()}_avatar.png`;
+    const ptsClass = p.pts>0?'pos':p.pts<0?'neg':'zero';
+    const cardClass = p.pts>0?'winner':p.ans==='MISSED'?'missed-card':'';
+    const ansCls = p.pts>0?'correct':p.ans==='MISSED'?'missed':'wrong';
+    return `
+    <div class="pp-card ${cardClass}">
+      <div class="pp-rank">${i+1}</div>
+      <img class="pp-avatar" src="${imgSrc}" alt="${p.player}" onerror="this.style.display='none'">
+      <div class="pp-flag">${p.flag||''}</div>
+      <div class="pp-info">
+        <div class="pp-name">${p.player}</div>
+        <div class="pp-team">${p.team||''}</div>
+        <div class="pp-answer"><span class="ans-pill ${ansCls}">${p.ans}</span></div>
+      </div>
+      <div class="pp-pts ${ptsClass}">${p.pts>0?'+':''}${p.pts}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderHero();
+renderVoteBar();
+renderPlayerPoints();
+</script>
+</body>
+</html>
