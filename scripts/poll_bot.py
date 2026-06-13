@@ -38,7 +38,7 @@ NOTIFS = [
     ('r90m',  90),
     ('close', 60),        # stop poll 60 min before kickoff — no late votes
 ]
-WINDOW = 45  # tolerance window in minutes — wider than cron interval to survive GitHub Actions delays
+WINDOW = 90  # tolerance window in minutes — covers 3 cron run-cycles to survive GitHub Actions delays
 
 # ── FUNNY ROASTS (rotated randomly) ───────────────────────────────────────────
 ROASTS = [
@@ -739,6 +739,9 @@ def main():
                     poll_msg_ids[match['id']] = int(message_id)
 
             elif notif_type == 'close':
+                # Don't close after match has already started
+                if diff_min <= 0:
+                    continue
                 # Stop the poll 60 min before kickoff — no votes accepted after this
                 reply_id = poll_msg_ids.get(match['id'])
                 if reply_id:

@@ -145,6 +145,7 @@ def fetch_schedule(sh):
             'id':     r.get('Match ID', ''),
             'stage':  r.get('Group/Stage', ''),
             'date':   r.get('Date (IST)', ''),
+            'time':   r.get('Kickoff (IST)', ''),
             'teamA':  r.get('Team A', ''),
             'teamB':  r.get('Team B', ''),
             'venue':  r.get('Venue', ''),
@@ -189,6 +190,15 @@ def build_stats(leaderboard):
         return
     html = path.read_text(encoding='utf-8')
     html = inject_data(html, 'LEADERBOARD', leaderboard)
+    path.write_text(html, encoding='utf-8')
+
+
+def build_schedule_page(schedule):
+    path = DASH_DIR / 'schedule.html'
+    if not path.exists():
+        return
+    html = path.read_text(encoding='utf-8')
+    html = inject_data(html, 'SCHEDULE', schedule)
     path.write_text(html, encoding='utf-8')
 
 
@@ -253,6 +263,7 @@ def main():
     print('🏗 Building dashboard...')
     build_index(leaderboard)
     build_stats(leaderboard)
+    build_schedule_page(schedule)
     build_match_pages(sh, schedule)
 
     ts = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
