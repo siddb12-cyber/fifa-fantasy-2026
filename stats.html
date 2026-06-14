@@ -389,7 +389,7 @@ table.ps-table tr:hover td{background:rgba(245,158,11,.03)}
           <option value="">All Teams</option>
         </select>
       </div>
-      <div id="ps-wrap">
+      <div id="ps-wrap" style="overflow-x:auto">
         <table class="ps-table" id="ps-table">
           <thead>
             <tr>
@@ -554,16 +554,15 @@ function buildGoldenGlove(){
   const grid  = document.getElementById('golden-glove-grid');
   const empty = document.getElementById('golden-glove-empty');
   const keepers = PLAYER_STATS
-    .filter(p=>p.Position==='GK' && (parseInt(p.Matches)||0)>0)
+    .filter(p=>p.Position==='GK' && ((parseInt(p['Clean Sheets'])||0)>0 || (parseInt(p.Saves)||0)>0))
     .sort((a,b)=>
       (parseInt(b['Clean Sheets'])||0)-(parseInt(a['Clean Sheets'])||0) ||
-      (parseInt(b.Saves)||0)-(parseInt(a.Saves)||0) ||
-      (parseInt(b.Matches)||0)-(parseInt(a.Matches)||0)
+      (parseInt(b.Saves)||0)-(parseInt(a.Saves)||0)
     )
     .slice(0,8);
   if(!keepers.length){
     grid.style.display='none';
-    if(empty) empty.style.display='block';
+    if(empty){ empty.style.display='block'; empty.querySelector('small').textContent='Enter Clean Sheets & Saves in the Player Stats sheet — updates every 2 hours'; }
     return;
   }
   if(empty) empty.style.display='none';
@@ -607,7 +606,7 @@ function buildPlaymaker(){
 // ── GOLDEN BALL ───────────────────────────────────────────────────────────────
 function buildGoldenBall(){
   const data = PLAYER_STATS
-    .filter(p=>(parseFloat(p.Rating)||0)>0 && (parseInt(p.Matches)||0)>0)
+    .filter(p=>(parseFloat(p.Rating)||0)>0)
     .sort((a,b)=>(parseFloat(b.Rating)||0)-(parseFloat(a.Rating)||0))
     .slice(0,10)
     .map(p=>({

@@ -241,7 +241,8 @@ def update_player_stats(sh):
                     'Red Cards':    0,
                 }
                 for col in EXTENDED_COLS:
-                    player_row[col] = ext.get(col, '')
+                    existing = ext.get(col, '')
+                    player_row[col] = existing if existing != '' else 0
 
                 all_players.append(player_row)
         print(f'  Teams: {len(teams)}, Players: {len(all_players)}')
