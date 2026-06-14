@@ -23,15 +23,24 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-FOOTBALL_KEY = os.environ.get('FOOTBALL_API_KEY', '')
-SHEET_ID     = os.environ.get('GOOGLE_SHEET_ID', '')
-GCP_CREDS    = os.environ.get('GOOGLE_CREDENTIALS_JSON', '')
-LOCAL_CREDS  = Path(r'C:\Users\siddh\Downloads\HK\FIFA\google_credentials.json')
+FOOTBALL_KEY     = os.environ.get('FOOTBALL_API_KEY', '')
+API_FOOTBALL_KEY = os.environ.get('API_FOOTBALL_KEY', '')
+SHEET_ID         = os.environ.get('GOOGLE_SHEET_ID', '')
+GCP_CREDS        = os.environ.get('GOOGLE_CREDENTIALS_JSON', '')
+LOCAL_CREDS      = Path(r'C:\Users\siddh\Downloads\HK\FIFA\google_credentials.json')
 
 API_BASE  = 'https://api.football-data.org/v4'
+AF_BASE   = 'https://v3.football.api-sports.io'
 FIFA_COMP = 2000
+AF_LEAGUE = 1       # FIFA World Cup on api-football.com
+AF_SEASON = 2026
 IST       = pytz.timezone('Asia/Kolkata')
 SCOPES    = ['https://www.googleapis.com/auth/spreadsheets']
+
+# api-football finished-match status codes
+AF_DONE = {'FT', 'AET', 'PEN', 'AWD', 'WO'}
+# api-football position codes → our standard codes
+AF_POS_MAP = {'G': 'GK', 'D': 'DEF', 'M': 'MID', 'F': 'FWD'}
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 log = logging.getLogger(__name__)
@@ -114,6 +123,49 @@ def fetch_json(url):
     return resp.json()
 
 
+def fetch_af(endpoint, params=None):
+    """Fetch from api-football.com v3."""
+    resp = requests.get(
+        f'{AF_BASE}{endpoint}',
+        headers={'x-apisports-key': API_FOOTBALL_KEY},
+        params=params,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    remaining = resp.headers.get('x-ratelimit-requests-remaining', '?')
+    print(f'    [AF] {endpoint} — quota remaining: {remaining}')
+    return data
+
+
+def get_processed_fixture_ids(sh):
+    """Read the list of already-processed api-football fixture IDs from Bot Config."""
+    try:
+        rows = sh.worksheet('Bot Config').get_all_values()
+        for row in rows:
+            if row and str(row[0]).strip() == 'api_football_fixtures':
+                val = str(row[1]).strip() if len(row) > 1 else ''
+                return set(x.strip() for x in val.split(',') if x.strip())
+    except Exception as e:
+        print(f'  [WARN] Could not read processed fixture IDs: {e}')
+    return set()
+
+
+def save_processed_fixture_ids(sh, ids):
+    """Write the processed fixture ID set back to Bot Config."""
+    val = ','.join(sorted(str(x) for x in ids))
+    try:
+        ws   = sh.worksheet('Bot Config')
+        rows = ws.get_all_values()
+        for i, row in enumerate(rows):
+            if row and str(row[0]).strip() == 'api_football_fixtures':
+                ws.update_cell(i + 1, 2, val)
+                return
+        ws.append_row(['api_football_fixtures', val])
+    except Exception as e:
+        print(f'  [WARN] Could not save processed fixture IDs: {e}')
+
+
 # ── TEAM STATS ────────────────────────────────────────────────────────────────
 def update_team_stats(sh):
     print('Updating team stats...')
@@ -155,111 +207,179 @@ def update_team_stats(sh):
     print(f'  [OK] Team stats: {len(rows)-1} teams')
 
 
-# Extended columns that are manually entered — preserved across auto-refresh
-EXTENDED_COLS = [
+PLAYER_STATS_HEADER = [
+    'Player', 'Team', 'Position', 'Nationality',
+    'Matches', 'Goals', 'Assists', 'Yellow Cards', 'Red Cards',
     'Saves', 'Clean Sheets', 'Passes', 'Chances Created',
     'Tackles', 'Interceptions', 'Aerial Duels Won', 'Blocks', 'Fouls', 'Rating',
 ]
 
-PLAYER_STATS_HEADER = [
-    'Player', 'Team', 'Position', 'Nationality',
-    'Matches', 'Goals', 'Assists', 'Yellow Cards', 'Red Cards',
-] + EXTENDED_COLS
+
+def _blank_player(name, team, pos, nationality):
+    return {
+        'Player': name, 'Team': team, 'Position': pos, 'Nationality': nationality,
+        'Matches': 0, 'Goals': 0, 'Assists': 0, 'Yellow Cards': 0, 'Red Cards': 0,
+        'Saves': 0, 'Clean Sheets': 0, 'Passes': 0, 'Chances Created': 0,
+        'Tackles': 0, 'Interceptions': 0, 'Aerial Duels Won': 0,
+        'Blocks': 0, 'Fouls': 0,
+        '_rating_sum': 0.0, '_rating_n': 0,
+    }
 
 
 # ── PLAYER STATS ──────────────────────────────────────────────────────────────
 def update_player_stats(sh):
-    """Fetch all WC squads + top-scorer stats and write to Player Stats tab.
+    """Aggregate per-player stats from api-football /fixtures/players.
 
-    Extended stats (Saves, Clean Sheets, Passes, etc.) are manually entered in
-    the sheet and are NOT available from the free-tier API.  We read them before
-    clearing and merge them back in so manual entries survive every 2-hour refresh.
+    Incremental: only fetches stats for NEW completed fixtures each run,
+    adding to the existing totals in the sheet.  Stays within the 100 req/day
+    free-tier limit even when running every 2 hours.
+
+    Rating is stored as a running average (weighted by matches rated).
     """
-    print('Updating player stats...')
+    if not API_FOOTBALL_KEY:
+        print('  [SKIP] API_FOOTBALL_KEY not set — skipping player stats')
+        return
 
+    print('Updating player stats from api-football...')
     ws = sh.worksheet('Player Stats')
 
-    # ── 0. Read existing sheet to preserve manually-entered extended stats ─────
-    existing_extended = {}  # {player_name_lower: {col: value}}
+    # ── 0. Read current sheet → base totals + running rating avg ─────────────
+    current = {}   # {player_name: stat_dict}
     try:
-        existing_rows = ws.get_all_records()
-        for row in existing_rows:
-            name_key = str(row.get('Player', '')).strip().lower()
-            if not name_key:
+        for row in ws.get_all_records():
+            name = str(row.get('Player', '')).strip()
+            if not name:
                 continue
-            existing_extended[name_key] = {
-                col: row.get(col, '') for col in EXTENDED_COLS
-            }
-        print(f'  Existing extended stats cached for {len(existing_extended)} players')
+            try:
+                rating = float(row.get('Rating', 0) or 0)
+            except (ValueError, TypeError):
+                rating = 0.0
+            matches = int(row.get('Matches', 0) or 0)
+            d = _blank_player(
+                name,
+                str(row.get('Team', '')),
+                str(row.get('Position', '')),
+                str(row.get('Nationality', '')),
+            )
+            for col in ['Matches','Goals','Assists','Yellow Cards','Red Cards',
+                        'Saves','Clean Sheets','Passes','Chances Created',
+                        'Tackles','Interceptions','Aerial Duels Won','Blocks','Fouls']:
+                try:
+                    d[col] = int(row.get(col, 0) or 0)
+                except (ValueError, TypeError):
+                    d[col] = 0
+            d['_rating_sum'] = rating * matches  # reconstruct running sum
+            d['_rating_n']   = matches if rating > 0 else 0
+            current[name] = d
+        print(f'  Loaded {len(current)} existing players from sheet')
     except Exception as e:
         print(f'  [WARN] Could not read existing Player Stats: {e}')
 
-    # ── 1. Scorers — goals/assists for top 100 players (one API call) ─────────
-    scorers_map = {}
+    # ── 1. Get all completed WC fixtures (1 API request) ─────────────────────
     try:
-        data = fetch_json(f'{API_BASE}/competitions/{FIFA_COMP}/scorers?limit=100')
-        for s in data.get('scorers', []):
-            pid = s.get('player', {}).get('id')
-            if pid:
-                scorers_map[pid] = {
-                    'goals':   s.get('goals', 0) or 0,
-                    'assists': s.get('assists', 0) or 0,
-                    'matches': s.get('playedMatches', 0) or 0,
-                }
-        print(f'  Scorers loaded: {len(scorers_map)}')
+        resp      = fetch_af('/fixtures', {'league': AF_LEAGUE, 'season': AF_SEASON})
+        all_done  = {
+            str(f['fixture']['id'])
+            for f in resp.get('response', [])
+            if f.get('fixture', {}).get('status', {}).get('short', '') in AF_DONE
+        }
     except Exception as e:
-        print(f'  [WARN] Could not fetch scorers: {e}')
-
-    # ── 2. All teams + squads — one API call returns all 32 squads inline ─────
-    all_players = []
-    try:
-        time.sleep(2)
-        teams_data = fetch_json(f'{API_BASE}/competitions/{FIFA_COMP}/teams')
-        teams = teams_data.get('teams', [])
-        for team in teams:
-            tname = normalise(team.get('name', ''))
-            for p in team.get('squad', []):
-                pid     = p.get('id')
-                raw_pos = p.get('position', '') or ''
-                pos     = POS_MAP.get(raw_pos, raw_pos)
-                sc      = scorers_map.get(pid, {})
-                name    = p.get('name', '')
-                name_key = name.strip().lower()
-
-                # Merge manually-entered extended stats (default '' / 0 for new players)
-                ext = existing_extended.get(name_key, {})
-
-                player_row = {
-                    'Player':       name,
-                    'Team':         tname,
-                    'Position':     pos,
-                    'Nationality':  p.get('nationality', ''),
-                    'Matches':      sc.get('matches', 0),
-                    'Goals':        sc.get('goals', 0),
-                    'Assists':      sc.get('assists', 0),
-                    'Yellow Cards': 0,
-                    'Red Cards':    0,
-                }
-                for col in EXTENDED_COLS:
-                    existing = ext.get(col, '')
-                    player_row[col] = existing if existing != '' else 0
-
-                all_players.append(player_row)
-        print(f'  Teams: {len(teams)}, Players: {len(all_players)}')
-    except Exception as e:
-        print(f'  [WARN] Could not fetch teams/squads: {e}')
-
-    if not all_players:
-        print('  [SKIP] No player data — sheet unchanged')
+        print(f'  [WARN] Could not fetch fixtures: {e}')
         return
 
-    # Sort: goals desc → assists desc → name asc
+    processed = get_processed_fixture_ids(sh)
+    new_ids   = all_done - processed
+    print(f'  Fixtures: {len(all_done)} completed, {len(new_ids)} new')
+
+    if not new_ids:
+        print('  No new fixtures — player stats unchanged')
+        return
+
+    # ── 2. Fetch per-player stats for each new fixture ────────────────────────
+    fetched = 0
+    for fid in sorted(new_ids):
+        try:
+            fdata = fetch_af('/fixtures/players', {'fixture': int(fid)})
+            time.sleep(0.4)
+        except Exception as e:
+            print(f'  [WARN] Fixture {fid} failed: {e}')
+            continue
+
+        for team_block in fdata.get('response', []):
+            tname = normalise(team_block.get('team', {}).get('name', ''))
+            for pe in team_block.get('players', []):
+                p    = pe.get('player', {})
+                s    = (pe.get('statistics') or [{}])[0]
+                name = str(p.get('name', '')).strip()
+                if not name:
+                    continue
+
+                games   = s.get('games',   {})
+                goals_s = s.get('goals',   {})
+                passes  = s.get('passes',  {})
+                tackles = s.get('tackles', {})
+                duels   = s.get('duels',   {})
+                fouls   = s.get('fouls',   {})
+                cards   = s.get('cards',   {})
+
+                pos_raw  = str(games.get('position', '') or '')
+                pos      = AF_POS_MAP.get(pos_raw, POS_MAP.get(pos_raw, pos_raw))
+                minutes  = int(games.get('minutes') or 0)
+                conceded = int(goals_s.get('conceded') or 0)
+
+                if name not in current:
+                    current[name] = _blank_player(
+                        name, tname, pos,
+                        str(p.get('nationality', '')),
+                    )
+
+                a = current[name]
+                if minutes > 0:
+                    a['Matches'] += 1
+                a['Goals']           += int(goals_s.get('total')          or 0)
+                a['Assists']         += int(goals_s.get('assists')        or 0)
+                a['Saves']           += int(goals_s.get('saves')         or 0)
+                a['Passes']          += int(passes.get('total')           or 0)
+                a['Chances Created'] += int(passes.get('key')            or 0)
+                a['Tackles']         += int(tackles.get('total')          or 0)
+                a['Interceptions']   += int(tackles.get('interceptions') or 0)
+                a['Blocks']          += int(tackles.get('blocks')        or 0)
+                a['Aerial Duels Won']+= int(duels.get('won')             or 0)
+                a['Fouls']           += int(fouls.get('committed')       or 0)
+                a['Yellow Cards']    += int(cards.get('yellow')          or 0)
+                a['Red Cards']       += int(cards.get('red')             or 0)
+
+                # Clean sheet: GK who played ≥60 min and conceded 0 in this match
+                if pos == 'GK' and minutes >= 60 and conceded == 0:
+                    a['Clean Sheets'] += 1
+
+                try:
+                    r = float(games.get('rating') or 0)
+                    if r > 0:
+                        a['_rating_sum'] += r
+                        a['_rating_n']   += 1
+                except (ValueError, TypeError):
+                    pass
+
+        fetched += 1
+        print(f'  [OK] Fixture {fid} processed')
+
+    # ── 3. Build final rows, compute average rating ───────────────────────────
+    all_players = []
+    for a in current.values():
+        avg_rating = round(a['_rating_sum'] / a['_rating_n'], 2) if a['_rating_n'] else 0
+        row = {col: a.get(col, 0) for col in PLAYER_STATS_HEADER}
+        row['Rating'] = avg_rating
+        all_players.append(row)
+
     all_players.sort(key=lambda x: (-x['Goals'], -x['Assists'], x['Player']))
 
     ws.clear()
     rows = [PLAYER_STATS_HEADER] + [[p[col] for col in PLAYER_STATS_HEADER] for p in all_players]
     ws.update(values=rows, range_name='A1')
-    print(f'  [OK] Player stats: {len(rows)-1} players written (extended cols preserved)')
+
+    save_processed_fixture_ids(sh, all_done)
+    print(f'  [OK] Player stats: {len(all_players)} players, {fetched} new fixtures processed')
 
 
 # ── FULL SCHEDULE + MATCH LOG ─────────────────────────────────────────────────
