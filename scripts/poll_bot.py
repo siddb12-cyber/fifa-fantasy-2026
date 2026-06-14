@@ -372,20 +372,6 @@ def collect_updates(gc, match_lookup, player_ids):
         print('  ✅ No new updates.')
         return
 
-    # Open / create Poll Responses sheet
-    try:
-        resp_ws = sh.worksheet('Poll Responses')
-    except:
-        resp_ws = sh.add_worksheet('Poll Responses', rows=1000, cols=7)
-        resp_ws.append_row(['Match ID', 'Match Name', 'Player Name',
-                             'Their Answer', 'Correct Answer', 'Points Awarded', 'Timestamp'])
-
-    try:
-        existing = {f"{r['Match ID']}::{r['Player Name']}"
-                    for r in resp_ws.get_all_records() if r.get('Match ID')}
-    except Exception as e:
-        print(f'  ⚠ Could not load existing votes: {e}')
-        existing = set()
     new_votes = 0
     max_uid   = offset
 
@@ -407,44 +393,10 @@ def collect_updates(gc, match_lookup, player_ids):
             display  = f"{tg_name} (@{username})" if username else tg_name
             log_new_member(gc, user_id, display)
 
-        # ── Handle poll answers ───────────────────────────────────────────────
-        pa = update.get('poll_answer')
-        if not pa:
-            continue
-
-        poll_id    = str(pa.get('poll_id', ''))
-        user_id    = pa.get('user', {}).get('id')
-        option_ids = pa.get('option_ids', [])
-        option     = option_ids[0] if option_ids else None
-
-        player = player_ids.get(user_id)
-        if not player:
-            tg_name = pa.get('user', {}).get('first_name', str(user_id))
-            print(f'  ⚠ {tg_name} (ID: {user_id}) voted but has no Pet Name yet — fill in Player IDs sheet')
-            continue
-
-        match_id = poll_map.get(poll_id)
-        if not match_id:
-            continue
-
-        key = f'{match_id}::{player}'
-        if key in existing:
-            continue
-
-        info    = match_lookup.get(match_id, {})
-        ta      = info.get('team_a', 'Team A')
-        tb      = info.get('team_b', 'Team B')
-        options = [f'{ta} wins', 'Draw', f'{tb} wins']
-        answer  = options[option] if option is not None and option < 3 else 'Unknown'
-
-        ts = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
-        resp_ws.append_row([match_id, f'{ta} vs {tb}', player, answer, '', '', ts])
-        existing.add(key)
-        new_votes += 1
-        print(f'  ✅ {player} → {answer} ({match_id})')
+        # Poll Responses are managed manually — poll_answer updates are intentionally ignored here.
 
     save_update_offset(gc, max_uid)
-    print(f'  ✅ {new_votes} vote(s) recorded. Offset saved: {max_uid}')
+    print(f'  ✅ Updates processed (joins only). Offset saved: {max_uid}')
 
 
 # ── AUTO-SCORING ──────────────────────────────────────────────────────────────
@@ -774,12 +726,7 @@ def main():
     else:
         print(f'\n  ✅ Sent {sent_count} notification(s).')
 
-    # ── Step 5: Auto-score completed matches (AFTER polls — slow, non-blocking) ─
-    print('\n🏆 Checking for completed matches to score...')
-    try:
-        score_completed_matches(gc, match_lookup, sent_log)
-    except Exception as e:
-        print(f'  ⚠ score_completed_matches failed (non-fatal): {e}')
+    # Poll Responses and Leaderboard are managed manually — auto-scoring is disabled.
 
 
 if __name__ == '__main__':

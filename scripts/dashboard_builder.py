@@ -142,6 +142,72 @@ def fetch_player_stats(sh):
     return rows
 
 
+def fetch_team_stats(sh):
+    try:
+        ws   = sh.worksheet('Team Stats')
+        rows = ws.get_all_records()
+    except Exception:
+        return []
+    result = []
+    for r in rows:
+        team = r.get('Team', '')
+        if not team:
+            continue
+        result.append({
+            'team':   team,
+            'group':  str(r.get('Group', '') or ''),
+            'played': int(r.get('Matches Played', 0) or 0),
+            'W':      int(r.get('W', 0) or 0),
+            'D':      int(r.get('D', 0) or 0),
+            'L':      int(r.get('L', 0) or 0),
+            'GF':     int(r.get('GF', 0) or 0),
+            'GA':     int(r.get('GA', 0) or 0),
+            'GD':     int(r.get('GD', 0) or 0),
+            'pts':    int(r.get('Points', 0) or 0),
+            'cs':     int(r.get('Clean Sheets', 0) or 0),
+        })
+    return result
+
+
+def fetch_match_log_with_votes(sh):
+    try:
+        ml_rows = sh.worksheet('Match Log').get_all_records()
+    except Exception:
+        return []
+    try:
+        pr_rows = sh.worksheet('Poll Responses').get_all_records()
+    except Exception:
+        pr_rows = []
+
+    votes_by_mid = {}
+    for r in pr_rows:
+        mid = str(r.get('Match ID', '')).strip()
+        if not mid:
+            continue
+        votes_by_mid.setdefault(mid, []).append({
+            'player': str(r.get('Player Name', '')),
+            'ans':    str(r.get('Their Answer', '')),
+            'pts':    int(r.get('Points Awarded', 0) or 0),
+        })
+
+    result = []
+    for r in ml_rows:
+        mid = str(r.get('Match ID', '')).strip()
+        if not mid:
+            continue
+        result.append({
+            'id':           mid,
+            'teamA':        r.get('Team A', ''),
+            'teamB':        r.get('Team B', ''),
+            'scoreA':       str(r.get('Score A', '')),
+            'scoreB':       str(r.get('Score B', '')),
+            'result':       r.get('Result', ''),
+            'date':         r.get('Date', ''),
+            'playerPoints': votes_by_mid.get(mid, []),
+        })
+    return result
+
+
 def fetch_schedule(sh):
     ws   = sh.worksheet('Full Schedule')
     rows = ws.get_all_records()
@@ -190,7 +256,7 @@ def build_index(leaderboard):
     path.write_text(html, encoding='utf-8')
 
 
-def build_stats(leaderboard, player_stats=None):
+def build_stats(leaderboard, player_stats=None, team_stats=None, match_log=None):
     path = DASH_DIR / 'stats.html'
     if not path.exists():
         return
@@ -198,6 +264,10 @@ def build_stats(leaderboard, player_stats=None):
     html = inject_data(html, 'LEADERBOARD', leaderboard)
     if player_stats is not None:
         html = inject_data(html, 'PLAYER_STATS', player_stats)
+    if team_stats is not None:
+        html = inject_data(html, 'TEAM_STATS', team_stats)
+    if match_log is not None:
+        html = inject_data(html, 'MATCH_LOG', match_log)
     path.write_text(html, encoding='utf-8')
 
 
@@ -268,10 +338,12 @@ def main():
     leaderboard  = fetch_leaderboard(sh)
     schedule     = fetch_schedule(sh)
     player_stats = fetch_player_stats(sh)
+    team_stats   = fetch_team_stats(sh)
+    match_log    = fetch_match_log_with_votes(sh)
 
     print('🏗 Building dashboard...')
     build_index(leaderboard)
-    build_stats(leaderboard, player_stats)
+    build_stats(leaderboard, player_stats, team_stats, match_log)
     build_schedule_page(schedule)
     build_match_pages(sh, schedule)
 

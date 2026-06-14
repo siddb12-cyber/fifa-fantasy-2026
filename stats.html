@@ -251,6 +251,31 @@ table.match-log tr:hover td{background:rgba(245,158,11,.03)}
 .no-data p{font-size:15px;margin-bottom:6px}
 .no-data small{font-size:12px;opacity:.6}
 
+/* ── PLAYER STATS ── */
+.ps-filters{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.ps-filter{
+  background:rgba(255,255,255,.05);border:1px solid var(--glass-b);
+  color:var(--text);padding:8px 14px;border-radius:10px;
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;
+  cursor:pointer;outline:none;transition:.2s;
+}
+.ps-filter:focus{border-color:var(--accent)}
+.ps-wrap{overflow-x:auto;border-radius:16px;border:1px solid var(--glass-b)}
+table.ps-table{width:100%;border-collapse:collapse;font-size:13px}
+table.ps-table th{
+  background:rgba(245,158,11,.06);color:var(--muted);
+  font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  padding:12px 14px;text-align:left;font-size:10px;
+  white-space:nowrap;cursor:pointer;user-select:none;
+}
+table.ps-table th:hover{color:var(--accent)}
+table.ps-table th.sort-desc::after{content:' ↓';color:var(--accent)}
+table.ps-table th.sort-asc::after{content:' ↑';color:var(--accent)}
+table.ps-table tr{border-bottom:1px solid rgba(255,255,255,.05)}
+table.ps-table tr:last-child{border-bottom:none}
+table.ps-table td{padding:11px 14px;vertical-align:middle}
+table.ps-table tr:hover td{background:rgba(245,158,11,.03)}
+
 /* RESPONSIVE */
 @media(max-width:640px){
   nav{padding:14px 20px}
@@ -283,7 +308,7 @@ table.match-log tr:hover td{background:rgba(245,158,11,.03)}
   <div class="hero">
     <div class="eyebrow">📊 STATS HUB · TOURNAMENT INTELLIGENCE</div>
     <h1>THE<br><span class="grad">DUGOUT</span></h1>
-    <p class="hero-sub">Fantasy tracker · Awards · Team form · Match records</p>
+    <p class="hero-sub">Fantasy tracker · Awards · Player stats · Match ratings</p>
   </div>
 
   <div class="tab-bar">
@@ -291,9 +316,8 @@ table.match-log tr:hover td{background:rgba(245,158,11,.03)}
     <button class="tab-btn" data-tab="golden-boot" onclick="switchTab(this)">👟 Golden Boot</button>
     <button class="tab-btn" data-tab="golden-glove" onclick="switchTab(this)">🧤 Golden Glove</button>
     <button class="tab-btn" data-tab="playmaker" onclick="switchTab(this)">🎩 The Playmaker</button>
-    <button class="tab-btn" data-tab="teams" onclick="switchTab(this)">🛡️ Team Form</button>
-    <button class="tab-btn" data-tab="match-log" onclick="switchTab(this)">📋 Match Reel</button>
-    <button class="tab-btn" data-tab="compare" onclick="switchTab(this)">⚖️ Face-Off</button>
+    <button class="tab-btn" data-tab="golden-ball" onclick="switchTab(this)">🌟 Golden Ball</button>
+    <button class="tab-btn" data-tab="player-stats" onclick="switchTab(this)">⚽ Player Stats</button>
   </div>
 
   <div class="container">
@@ -337,63 +361,66 @@ table.match-log tr:hover td{background:rgba(245,158,11,.03)}
       </div>
     </div>
 
-    <!-- TEAM FORM -->
-    <div id="tab-teams" class="tab-panel">
-      <div class="sec-hd">🛡️ TEAM FORM</div>
-      <div class="team-stats-grid" id="team-stats-grid"></div>
+    <!-- GOLDEN BALL -->
+    <div id="tab-golden-ball" class="tab-panel">
+      <div class="sec-hd">🌟 GOLDEN BALL — BEST PLAYER RATINGS</div>
+      <div class="award-grid" id="golden-ball-grid"></div>
+      <div class="no-data" id="golden-ball-empty">
+        <div class="icon">🌟</div>
+        <p>Golden Ball ratings appear after matches are rated</p>
+        <small>Enter ratings in the Player Stats sheet — updates every 2 hours</small>
+      </div>
     </div>
 
-    <!-- MATCH REEL -->
-    <div id="tab-match-log" class="tab-panel">
-      <div class="sec-hd">📋 MATCH REEL — FANTASY LOG</div>
-      <div class="match-log-wrap">
-        <table class="match-log">
+    <!-- PLAYER STATS -->
+    <div id="tab-player-stats" class="tab-panel">
+      <div class="sec-hd">⚽ PLAYER STATS — ALL WC SQUADS</div>
+      <div class="ps-filters">
+        <input id="ps-search" class="ps-filter" type="text" placeholder="Search player…"
+               oninput="filterPlayers()" style="min-width:200px">
+        <select id="ps-pos-filter" class="ps-filter" onchange="filterPlayers()">
+          <option value="">All Positions</option>
+          <option value="GK">GK</option>
+          <option value="DEF">DEF</option>
+          <option value="MID">MID</option>
+          <option value="FWD">FWD</option>
+        </select>
+        <select id="ps-team-filter" class="ps-filter" onchange="filterPlayers()">
+          <option value="">All Teams</option>
+        </select>
+      </div>
+      <div id="ps-wrap">
+        <table class="ps-table" id="ps-table">
           <thead>
             <tr>
-              <th>#</th><th>Match</th><th>Result</th>
-              <th>Budhya</th><th>Ambu</th><th>Vini</th><th>Baby</th>
-              <th>Abs</th><th>Anna</th><th>Umaga</th><th>PR</th>
+              <th>#</th>
+              <th>Player</th>
+              <th onclick="sortBy('Team')" data-col="Team">Team</th>
+              <th onclick="sortBy('Position')" data-col="Position">Pos</th>
+              <th onclick="sortBy('Matches')" data-col="Matches">Apps</th>
+              <th onclick="sortBy('Goals')" data-col="Goals" class="sort-desc">⚽ Goals</th>
+              <th onclick="sortBy('Assists')" data-col="Assists">🎯 Assists</th>
+              <th onclick="sortBy('Saves')" data-col="Saves">🧤 Saves</th>
+              <th onclick="sortBy('Clean Sheets')" data-col="Clean Sheets">🧹 CS</th>
+              <th onclick="sortBy('Chances Created')" data-col="Chances Created">⚡ Chances</th>
+              <th onclick="sortBy('Passes')" data-col="Passes">🔗 Passes</th>
+              <th onclick="sortBy('Tackles')" data-col="Tackles">🛡 Tackles</th>
+              <th onclick="sortBy('Interceptions')" data-col="Interceptions">✂️ Int</th>
+              <th onclick="sortBy('Aerial Duels Won')" data-col="Aerial Duels Won">✈️ Aerial</th>
+              <th onclick="sortBy('Blocks')" data-col="Blocks">🚫 Blocks</th>
+              <th onclick="sortBy('Fouls')" data-col="Fouls">⚠️ Fouls</th>
+              <th onclick="sortBy('Yellow Cards')" data-col="Yellow Cards">🟨 YC</th>
+              <th onclick="sortBy('Red Cards')" data-col="Red Cards">🟥 RC</th>
+              <th onclick="sortBy('Rating')" data-col="Rating">⭐ Rating</th>
             </tr>
           </thead>
-          <tbody id="match-log-body"></tbody>
+          <tbody id="ps-body"></tbody>
         </table>
       </div>
-      <div class="no-data" id="match-log-empty">
-        <div class="icon">📋</div>
-        <p>No matches played yet</p>
-        <small>Records appear after June 12</small>
-      </div>
-    </div>
-
-    <!-- FACE-OFF COMPARE -->
-    <div id="tab-compare" class="tab-panel">
-      <div class="sec-hd">⚖️ FACE-OFF — HEAD TO HEAD</div>
-      <div class="compare-wrap">
-        <div class="compare-selects">
-          <select class="compare-select" id="cmp-a" onchange="updateCompare()">
-            <option value="0">Budhya</option>
-            <option value="1">Ambu</option>
-            <option value="2">Vini</option>
-            <option value="3">Baby</option>
-            <option value="4">Abs</option>
-            <option value="5">Anna</option>
-            <option value="6">Umaga</option>
-            <option value="7">PR</option>
-          </select>
-          <div class="vs-label">VS</div>
-          <select class="compare-select" id="cmp-b" onchange="updateCompare()">
-            <option value="0">Budhya</option>
-            <option value="1" selected>Ambu</option>
-            <option value="2">Vini</option>
-            <option value="3">Baby</option>
-            <option value="4">Abs</option>
-            <option value="5">Anna</option>
-            <option value="6">Umaga</option>
-            <option value="7">PR</option>
-          </select>
-        </div>
-        <div class="compare-legend" id="cmp-legend"></div>
-        <div class="compare-bars" id="cmp-bars"></div>
+      <div class="no-data" id="ps-empty" style="display:none">
+        <div class="icon">⚽</div>
+        <p>Player stats load after matches kick off</p>
+        <small>Auto-updates every 2 hours · Extended stats editable in the sheet</small>
       </div>
     </div>
 
@@ -402,75 +429,36 @@ table.match-log tr:hover td{background:rgba(245,158,11,.03)}
 
 <script>
 // ── DATA ──────────────────────────────────────────────────────────────────────
-const LEADERBOARD = window.LEADERBOARD || [{"rank": 1, "player": "Budhya", "full": "Sidhant Budhkar", "avatar": "assets/avatars/budhya_avatar.png", "pts": 15, "correct": 5, "wrong": 2, "missed": 0, "streak": "—", "delta": "0"}, {"rank": 2, "player": "Vini", "full": "Vineet Nayak", "avatar": "assets/avatars/vini_avatar.png", "pts": 15, "correct": 5, "wrong": 2, "missed": 0, "streak": "—", "delta": "0"}, {"rank": 3, "player": "Anna", "full": "Nishant Salian", "avatar": "assets/avatars/anna_avatar.png", "pts": 15, "correct": 5, "wrong": 2, "missed": 0, "streak": "—", "delta": "0"}, {"rank": 4, "player": "PR", "full": "Pranav Raut", "avatar": "assets/avatars/pr_avatar.png", "pts": 15, "correct": 5, "wrong": 2, "missed": 0, "streak": "—", "delta": "0"}, {"rank": 5, "player": "Ambu", "full": "Kushal Ambulkar", "avatar": "assets/avatars/ambu_avatar.png", "pts": 12, "correct": 4, "wrong": 3, "missed": 0, "streak": "—", "delta": "0"}, {"rank": 6, "player": "Baby", "full": "Susmit Gulavani", "avatar": "assets/avatars/baby_avatar.png", "pts": 12, "correct": 4, "wrong": 3, "missed": 0, "streak": "—", "delta": "0"}, {"rank": 7, "player": "Abs", "full": "Abhishek Desai", "avatar": "assets/avatars/abs_avatar.png", "pts": 12, "correct": 4, "wrong": 3, "missed": 0, "streak": "—", "delta": "0"}, {"rank": 8, "player": "Ash", "full": "Ashish Biswas", "avatar": "assets/avatars/ash_avatar.png", "pts": 12, "correct": 4, "wrong": 3, "missed": 0, "streak": "—", "delta": "0"}, {"rank": 9, "player": "Umaga", "full": "Umang Budhkar", "avatar": "assets/avatars/umaga_avatar.png", "pts": 9, "correct": 3, "wrong": 4, "missed": 0, "streak": "—", "delta": "0"}];
+const LEADERBOARD   = window.LEADERBOARD   || [];
+const PLAYER_STATS  = window.PLAYER_STATS  || [];
 
-// Golden Boot — top goal scorers in tournament
-const TOP_SCORERS = window.TOP_SCORERS || [
-  {rank:1,name:"K. Mbappé",         team:"France",      flag:"🇫🇷",goals:0,assists:0,apps:0},
-  {rank:2,name:"E. Haaland",        team:"Norway",      flag:"🇳🇴",goals:0,assists:0,apps:0},
-  {rank:3,name:"H. Kane",           team:"England",     flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",goals:0,assists:0,apps:0},
-  {rank:4,name:"L. Messi",          team:"Argentina",   flag:"🇦🇷",goals:0,assists:0,apps:0},
-  {rank:5,name:"Vinicius Jr",       team:"Brazil",      flag:"🇧🇷",goals:0,assists:0,apps:0},
-  {rank:6,name:"C. Ronaldo",        team:"Portugal",    flag:"🇵🇹",goals:0,assists:0,apps:0},
-  {rank:7,name:"J. Musiala",        team:"Germany",     flag:"🇩🇪",goals:0,assists:0,apps:0},
-  {rank:8,name:"Pedri",             team:"Spain",       flag:"🇪🇸",goals:0,assists:0,apps:0},
-];
-
-// Golden Glove — top goalkeepers
-const TOP_KEEPERS = window.TOP_KEEPERS || [
-  {rank:1,name:"T. Courtois",       team:"Belgium",     flag:"🇧🇪",saves:0,cs:0,apps:0},
-  {rank:2,name:"M. ter Stegen",     team:"Germany",     flag:"🇩🇪",saves:0,cs:0,apps:0},
-  {rank:3,name:"A. Becker",         team:"Brazil",      flag:"🇧🇷",saves:0,cs:0,apps:0},
-  {rank:4,name:"G. Donnarumma",     team:"France",      flag:"🇫🇷",saves:0,cs:0,apps:0},
-  {rank:5,name:"Y. Sommer",         team:"Switzerland", flag:"🇨🇭",saves:0,cs:0,apps:0},
-  {rank:6,name:"R. Sánchez",        team:"Spain",       flag:"🇪🇸",saves:0,cs:0,apps:0},
-  {rank:7,name:"D. Flekken",        team:"Netherlands", flag:"🇳🇱",saves:0,cs:0,apps:0},
-  {rank:8,name:"A. Onana",          team:"Cameroon",    flag:"🇨🇲",saves:0,cs:0,apps:0},
-];
-
-// Playmaker Award — top creators
-const TOP_PLAYMAKERS = window.TOP_PLAYMAKERS || [
-  {rank:1,name:"K. De Bruyne",      team:"Belgium",     flag:"🇧🇪",assists:0,keypasses:0,chances:0,apps:0},
-  {rank:2,name:"Pedri",             team:"Spain",       flag:"🇪🇸",assists:0,keypasses:0,chances:0,apps:0},
-  {rank:3,name:"L. Messi",          team:"Argentina",   flag:"🇦🇷",assists:0,keypasses:0,chances:0,apps:0},
-  {rank:4,name:"T. Alexander-Arnold",team:"England",    flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",assists:0,keypasses:0,chances:0,apps:0},
-  {rank:5,name:"J. Musiala",        team:"Germany",     flag:"🇩🇪",assists:0,keypasses:0,chances:0,apps:0},
-  {rank:6,name:"Vinicius Jr",       team:"Brazil",      flag:"🇧🇷",assists:0,keypasses:0,chances:0,apps:0},
-  {rank:7,name:"K. Mbappé",         team:"France",      flag:"🇫🇷",assists:0,keypasses:0,chances:0,apps:0},
-  {rank:8,name:"X. Simons",         team:"Netherlands", flag:"🇳🇱",assists:0,keypasses:0,chances:0,apps:0},
-];
-
-// Team form — actual tournament teams
-const TEAM_STATS = window.TEAM_STATS || [
-  {team:"Brazil",      flag:"🇧🇷",group:"C",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"France",      flag:"🇫🇷",group:"I",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"England",     flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",group:"L",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"Germany",     flag:"🇩🇪",group:"E",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"Argentina",   flag:"🇦🇷",group:"J",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"Spain",       flag:"🇪🇸",group:"H",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"Portugal",    flag:"🇵🇹",group:"K",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"Netherlands", flag:"🇳🇱",group:"F",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"Belgium",     flag:"🇧🇪",group:"G",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"Norway",      flag:"🇳🇴",group:"I",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"USA",         flag:"🇺🇸",group:"D",played:0,gf:0,ga:0,cs:0,form:[]},
-  {team:"Mexico",      flag:"🇲🇽",group:"A",played:0,gf:0,ga:0,cs:0,form:[]},
-];
-
-const MATCH_LOG = window.MATCH_LOG || [];
+const FLAG_MAP = {
+  'Algeria':'🇩🇿','Argentina':'🇦🇷','Australia':'🇦🇺','Austria':'🇦🇹',
+  'Belgium':'🇧🇪','Bolivia':'🇧🇴','Brazil':'🇧🇷','Cameroon':'🇨🇲',
+  'Canada':'🇨🇦','Chile':'🇨🇱','China PR':'🇨🇳','Colombia':'🇨🇴',
+  'Costa Rica':'🇨🇷','Croatia':'🇭🇷','Czechia':'🇨🇿','Denmark':'🇩🇰',
+  'DR Congo':'🇨🇩','Ecuador':'🇪🇨','Egypt':'🇪🇬','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+  'France':'🇫🇷','Germany':'🇩🇪','Ghana':'🇬🇭','Honduras':'🇭🇳',
+  'Hungary':'🇭🇺','Indonesia':'🇮🇩','Iran':'🇮🇷','Iraq':'🇮🇶',
+  'Italy':'🇮🇹','Ivory Coast':'🇨🇮','Japan':'🇯🇵','Kenya':'🇰🇪',
+  'Mali':'🇲🇱','Mexico':'🇲🇽','Morocco':'🇲🇦','Netherlands':'🇳🇱',
+  'New Zealand':'🇳🇿','Nigeria':'🇳🇬','Norway':'🇳🇴','Panama':'🇵🇦',
+  'Paraguay':'🇵🇾','Peru':'🇵🇪','Poland':'🇵🇱','Portugal':'🇵🇹',
+  'Romania':'🇷🇴','Saudi Arabia':'🇸🇦','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Senegal':'🇸🇳',
+  'Serbia':'🇷🇸','Slovakia':'🇸🇰','South Africa':'🇿🇦','South Korea':'🇰🇷',
+  'Spain':'🇪🇸','Switzerland':'🇨🇭','Thailand':'🇹🇭','Tunisia':'🇹🇳',
+  'Turkey':'🇹🇷','Turkiye':'🇹🇷','Ukraine':'🇺🇦','United States':'🇺🇸',
+  'Uruguay':'🇺🇾','USA':'🇺🇸','Venezuela':'🇻🇪','Wales':'🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+};
 
 // ── TAB SWITCH ────────────────────────────────────────────────────────────────
 function switchTab(btn){
   var id = btn.getAttribute('data-tab');
-  var btns = document.querySelectorAll('.tab-btn');
-  for(var i=0;i<btns.length;i++) btns[i].classList.remove('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  var panels = document.querySelectorAll('.tab-panel');
-  for(var j=0;j<panels.length;j++) panels[j].classList.remove('active');
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   var panel = document.getElementById('tab-'+id);
-  if(panel){
-    panel.classList.add('active');
-    panel.scrollIntoView({behavior:'smooth',block:'start'});
-  }
+  if(panel){ panel.classList.add('active'); panel.scrollIntoView({behavior:'smooth',block:'start'}); }
 }
 
 // ── FANTASY TRACKER ───────────────────────────────────────────────────────────
@@ -517,139 +505,208 @@ function buildFantasyGrid(){
 
 // ── SHARED AWARD BUILDER ──────────────────────────────────────────────────────
 function buildAward({gridId, emptyId, data, icon, rankKey, statCols}){
-  const grid = document.getElementById(gridId);
+  const grid  = document.getElementById(gridId);
   const empty = document.getElementById(emptyId);
-  const hasData = data.some(s=>s[rankKey]>0);
-  if(!hasData){
+  if(!data.length || !data.some(s=>(parseInt(s[rankKey])||0)>0)){
     grid.style.display='none';
-    empty.style.display='block';
+    if(empty) empty.style.display='block';
     return;
   }
-  empty.style.display='none';
+  if(empty) empty.style.display='none';
   grid.style.display='';
-  const sorted = [...data].sort((a,b)=>b[rankKey]-a[rankKey]);
-  const rkCls = ['r1','r2','r3'];
-  const cardCls = ['top1','top2','top3'];
+  const sorted   = [...data].sort((a,b)=>(parseInt(b[rankKey])||0)-(parseInt(a[rankKey])||0));
+  const rkCls    = ['r1','r2','r3'];
+  const cardCls  = ['top1','top2','top3'];
   grid.innerHTML = sorted.map((s,i)=>`
     <div class="award-card ${cardCls[i]||''}">
       ${i===0?`<div class="award-icon">${icon}</div>`:''}
       <div class="award-rank ${rkCls[i]||'rn'}">${i+1}</div>
-      <div class="award-flag-col">${s.flag}</div>
+      <div class="award-flag-col">${s.flag||FLAG_MAP[s.team]||'🏳️'}</div>
       <div class="award-info">
         <div class="award-name">${s.name}</div>
         <div class="award-team">${s.team}</div>
         <div class="award-stats">
-          ${statCols.map(c=>`<div class="award-stat"><div class="val">${s[c.key]}</div><div class="lbl">${c.lbl}</div></div>`).join('')}
+          ${statCols.map(c=>`<div class="award-stat"><div class="val">${s[c.key]||0}</div><div class="lbl">${c.lbl}</div></div>`).join('')}
         </div>
       </div>
     </div>`).join('');
 }
 
+// ── GOLDEN BOOT ───────────────────────────────────────────────────────────────
 function buildGoldenBoot(){
+  const data = PLAYER_STATS
+    .filter(p=>(parseInt(p.Goals)||0)>0)
+    .sort((a,b)=>(parseInt(b.Goals)||0)-(parseInt(a.Goals)||0)||(parseInt(b.Assists)||0)-(parseInt(a.Assists)||0))
+    .slice(0,10)
+    .map(p=>({
+      name:p.Player, team:p.Team, flag:FLAG_MAP[p.Team]||'🏳️',
+      goals:parseInt(p.Goals)||0, assists:parseInt(p.Assists)||0, apps:parseInt(p.Matches)||0,
+    }));
   buildAward({
     gridId:'golden-boot-grid', emptyId:'golden-boot-empty',
-    data:TOP_SCORERS, icon:'👟✨', rankKey:'goals',
-    statCols:[{key:'goals',lbl:'Goals'},{key:'assists',lbl:'Assists'},{key:'apps',lbl:'Apps'}]
+    data, icon:'👟✨', rankKey:'goals',
+    statCols:[{key:'goals',lbl:'Goals'},{key:'assists',lbl:'Assists'},{key:'apps',lbl:'Apps'}],
   });
 }
+
+// ── GOLDEN GLOVE ─────────────────────────────────────────────────────────────
 function buildGoldenGlove(){
-  buildAward({
-    gridId:'golden-glove-grid', emptyId:'golden-glove-empty',
-    data:TOP_KEEPERS, icon:'🧤✨', rankKey:'saves',
-    statCols:[{key:'saves',lbl:'Saves'},{key:'cs',lbl:'Clean Sheets'},{key:'apps',lbl:'Apps'}]
-  });
-}
-function buildPlaymaker(){
-  buildAward({
-    gridId:'playmaker-grid', emptyId:'playmaker-empty',
-    data:TOP_PLAYMAKERS, icon:'🎩✨', rankKey:'assists',
-    statCols:[{key:'assists',lbl:'Assists'},{key:'keypasses',lbl:'Key Passes'},{key:'chances',lbl:'Chances'},{key:'apps',lbl:'Apps'}]
-  });
-}
-
-// ── TEAM FORM ─────────────────────────────────────────────────────────────────
-function buildTeamStats(){
-  const grid = document.getElementById('team-stats-grid');
-  grid.innerHTML = TEAM_STATS.map(t=>{
-    const gd = t.gf-t.ga;
-    const formHtml = t.form.length
-      ? t.form.map(f=>`<div class="form-pill ${f}">${f}</div>`).join('')
-      : ['','',''].map(()=>`<div class="form-pill q">—</div>`).join('');
-    return `
-    <div class="team-card">
-      <div class="tsc-header">
-        <div class="tsc-flag">${t.flag}</div>
-        <div>
-          <div class="tsc-name">${t.team}</div>
-          <div class="tsc-group">Group ${t.group}</div>
-        </div>
-      </div>
-      <div class="tsc-stats-row">
-        <div class="tsc-stat"><div class="val" style="color:var(--text)">${t.played}</div><div class="lbl">Played</div></div>
-        <div class="tsc-stat"><div class="val" style="color:var(--emerald)">${t.gf}</div><div class="lbl">GF</div></div>
-        <div class="tsc-stat"><div class="val" style="color:var(--red)">${t.ga}</div><div class="lbl">GA</div></div>
-        <div class="tsc-stat"><div class="val" style="color:${gd>=0?'var(--emerald)':'var(--red)'}">${gd>=0?'+':''}${gd}</div><div class="lbl">GD</div></div>
-        <div class="tsc-stat"><div class="val" style="color:var(--gold)">${t.cs||0}</div><div class="lbl">CS</div></div>
-      </div>
-      <div class="tsc-form-lbl">RECENT FORM</div>
-      <div class="tsc-form">${formHtml}</div>
-    </div>`;
-  }).join('');
-}
-
-// ── MATCH REEL ────────────────────────────────────────────────────────────────
-function buildMatchLog(){
-  const tbody = document.getElementById('match-log-body');
-  const empty = document.getElementById('match-log-empty');
-  if(!MATCH_LOG.length){
-    var wrap = document.querySelector('.match-log-wrap');
-    if(wrap) wrap.style.display='none';
+  const grid  = document.getElementById('golden-glove-grid');
+  const empty = document.getElementById('golden-glove-empty');
+  const keepers = PLAYER_STATS
+    .filter(p=>p.Position==='GK' && (parseInt(p.Matches)||0)>0)
+    .sort((a,b)=>
+      (parseInt(b['Clean Sheets'])||0)-(parseInt(a['Clean Sheets'])||0) ||
+      (parseInt(b.Saves)||0)-(parseInt(a.Saves)||0) ||
+      (parseInt(b.Matches)||0)-(parseInt(a.Matches)||0)
+    )
+    .slice(0,8);
+  if(!keepers.length){
+    grid.style.display='none';
     if(empty) empty.style.display='block';
     return;
   }
-  empty.style.display='none';
-  const players = ['Budhya','Ambu','Vini','Baby','Abs','Anna','Umaga','PR'];
-  tbody.innerHTML = MATCH_LOG.map(m=>{
-    const ptsHtml = players.map(p=>{
-      const pp = m.playerPoints?.find(x=>x.player===p);
-      if(!pp) return '<td>—</td>';
-      const col = pp.pts>0?'var(--emerald)':pp.pts<0?'var(--red)':'var(--muted)';
-      const ansCls = pp.pts>0?'correct':pp.ans==='MISSED'?'missed':'wrong';
-      return `<td><span style="color:${col};font-weight:700">${pp.pts>0?'+':''}${pp.pts}</span><br>
-              <span class="pill ${ansCls}">${pp.ans}</span></td>`;
-    }).join('');
-    return `<tr>
-      <td><strong>${m.id}</strong></td>
-      <td>${m.flagA||''} ${m.teamA} vs ${m.teamB} ${m.flagB||''}</td>
-      <td><strong>${m.scoreA}–${m.scoreB}</strong></td>
-      ${ptsHtml}
-    </tr>`;
-  }).join('');
+  if(empty) empty.style.display='none';
+  grid.style.display='';
+  const rkCls   = ['r1','r2','r3'];
+  const cardCls = ['top1','top2','top3'];
+  grid.innerHTML = keepers.map((p,i)=>`
+    <div class="award-card ${cardCls[i]||''}">
+      ${i===0?'<div class="award-icon">🧤✨</div>':''}
+      <div class="award-rank ${rkCls[i]||'rn'}">${i+1}</div>
+      <div class="award-flag-col">${FLAG_MAP[p.Team]||'🏳️'}</div>
+      <div class="award-info">
+        <div class="award-name">${p.Player}</div>
+        <div class="award-team">${p.Team}</div>
+        <div class="award-stats">
+          <div class="award-stat"><div class="val" style="color:var(--emerald)">${parseInt(p['Clean Sheets'])||0}</div><div class="lbl">CS</div></div>
+          <div class="award-stat"><div class="val">${parseInt(p.Saves)||0}</div><div class="lbl">Saves</div></div>
+          <div class="award-stat"><div class="val">${parseInt(p.Matches)||0}</div><div class="lbl">Apps</div></div>
+        </div>
+      </div>
+    </div>`).join('');
 }
 
-// ── FACE-OFF ──────────────────────────────────────────────────────────────────
-function updateCompare(){
-  const ai = parseInt(document.getElementById('cmp-a').value);
-  const bi = parseInt(document.getElementById('cmp-b').value);
-  const a = LEADERBOARD[ai], b = LEADERBOARD[bi];
-  const metrics = [
-    {label:'Points',  va:a.pts,     vb:b.pts,     max:Math.max(Math.abs(a.pts),Math.abs(b.pts),1)},
-    {label:'Correct', va:a.correct, vb:b.correct,  max:Math.max(a.correct,b.correct,1)},
-    {label:'Wrong',   va:a.wrong,   vb:b.wrong,    max:Math.max(a.wrong,b.wrong,1)},
-    {label:'Missed',  va:a.missed,  vb:b.missed,   max:Math.max(a.missed,b.missed,1)},
-  ];
-  document.getElementById('cmp-legend').innerHTML = `
-    <div class="legend-item"><div class="legend-dot a"></div>${a.player}</div>
-    <div class="legend-item"><div class="legend-dot b"></div>${b.player}</div>`;
-  document.getElementById('cmp-bars').innerHTML = metrics.map(m=>`
-    <div class="cmp-row">
-      <div class="cmp-label">${m.label}</div>
-      <div class="cmp-bar-wrap">
-        <div class="cmp-bar-a" style="width:${Math.max(0,m.va/m.max*100)}%"></div>
-        <div class="cmp-bar-b" style="width:${Math.max(0,m.vb/m.max*100)}%"></div>
-      </div>
-      <div class="cmp-val">${m.va} / ${m.vb}</div>
-    </div>`).join('');
+// ── PLAYMAKER ─────────────────────────────────────────────────────────────────
+function buildPlaymaker(){
+  const data = PLAYER_STATS
+    .filter(p=>(parseInt(p.Assists)||0)>0)
+    .sort((a,b)=>(parseInt(b.Assists)||0)-(parseInt(a.Assists)||0)||(parseInt(b.Goals)||0)-(parseInt(a.Goals)||0))
+    .slice(0,10)
+    .map(p=>({
+      name:p.Player, team:p.Team, flag:FLAG_MAP[p.Team]||'🏳️',
+      assists:parseInt(p.Assists)||0, goals:parseInt(p.Goals)||0, apps:parseInt(p.Matches)||0,
+    }));
+  buildAward({
+    gridId:'playmaker-grid', emptyId:'playmaker-empty',
+    data, icon:'🎩✨', rankKey:'assists',
+    statCols:[{key:'assists',lbl:'Assists'},{key:'goals',lbl:'Goals'},{key:'apps',lbl:'Apps'}],
+  });
+}
+
+// ── GOLDEN BALL ───────────────────────────────────────────────────────────────
+function buildGoldenBall(){
+  const data = PLAYER_STATS
+    .filter(p=>(parseFloat(p.Rating)||0)>0 && (parseInt(p.Matches)||0)>0)
+    .sort((a,b)=>(parseFloat(b.Rating)||0)-(parseFloat(a.Rating)||0))
+    .slice(0,10)
+    .map(p=>({
+      name:p.Player, team:p.Team, flag:FLAG_MAP[p.Team]||'🏳️',
+      rating:parseFloat(p.Rating)||0,
+      goals:parseInt(p.Goals)||0,
+      assists:parseInt(p.Assists)||0,
+      apps:parseInt(p.Matches)||0,
+    }));
+  buildAward({
+    gridId:'golden-ball-grid', emptyId:'golden-ball-empty',
+    data, icon:'🌟✨', rankKey:'rating',
+    statCols:[
+      {key:'rating',lbl:'Rating'},
+      {key:'goals',lbl:'Goals'},
+      {key:'assists',lbl:'Assists'},
+      {key:'apps',lbl:'Apps'},
+    ],
+  });
+}
+
+// ── PLAYER STATS ──────────────────────────────────────────────────────────────
+var psSortKey = 'Goals', psSortDir = -1;
+
+function sortBy(key){
+  if(psSortKey===key) psSortDir=-psSortDir;
+  else { psSortKey=key; psSortDir=-1; }
+  document.querySelectorAll('#ps-table th[data-col]').forEach(th=>{
+    th.classList.remove('sort-asc','sort-desc');
+    if(th.dataset.col===key) th.classList.add(psSortDir>0?'sort-asc':'sort-desc');
+  });
+  filterPlayers();
+}
+
+function filterPlayers(){
+  const q    = (document.getElementById('ps-search')||{value:''}).value.toLowerCase();
+  const pos  = (document.getElementById('ps-pos-filter')||{value:''}).value;
+  const team = (document.getElementById('ps-team-filter')||{value:''}).value;
+  const POS_COLOR = {GK:'var(--cyan)',DEF:'var(--emerald)',MID:'var(--purple)',FWD:'var(--red)'};
+  let rows = PLAYER_STATS.filter(p=>{
+    if(q && !(p.Player||'').toLowerCase().includes(q)) return false;
+    if(pos && p.Position!==pos) return false;
+    if(team && p.Team!==team) return false;
+    return true;
+  });
+  rows.sort((a,b)=>{
+    const av = parseFloat(a[psSortKey])||0;
+    const bv = parseFloat(b[psSortKey])||0;
+    return psSortDir*(bv-av) || (a.Player||'').localeCompare(b.Player||'');
+  });
+  const body = document.getElementById('ps-body');
+  if(!body) return;
+  if(!rows.length){
+    body.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:40px;color:var(--muted)">No players match your filter</td></tr>';
+    return;
+  }
+  const cc = p => POS_COLOR[p]||'var(--muted)';
+  const v  = (p,k) => { const n=parseFloat(p[k]); return isNaN(n)||n===0?'<span style="color:var(--muted)">0</span>':n; };
+  body.innerHTML = rows.map((p,i)=>`
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td>${FLAG_MAP[p.Team]||'🏳️'} <strong>${p.Player}</strong></td>
+      <td style="color:var(--muted)">${p.Team}</td>
+      <td><span style="background:${cc(p.Position)}20;color:${cc(p.Position)};border:1px solid ${cc(p.Position)}40;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">${p.Position||'—'}</span></td>
+      <td>${p.Matches||0}</td>
+      <td style="color:var(--emerald);font-weight:700">${v(p,'Goals')}</td>
+      <td style="color:var(--cyan);font-weight:700">${v(p,'Assists')}</td>
+      <td>${v(p,'Saves')}</td>
+      <td style="color:var(--emerald)">${v(p,'Clean Sheets')}</td>
+      <td style="color:var(--purple)">${v(p,'Chances Created')}</td>
+      <td>${v(p,'Passes')}</td>
+      <td>${v(p,'Tackles')}</td>
+      <td>${v(p,'Interceptions')}</td>
+      <td>${v(p,'Aerial Duels Won')}</td>
+      <td>${v(p,'Blocks')}</td>
+      <td style="color:var(--red)">${v(p,'Fouls')}</td>
+      <td style="color:var(--gold)">${p['Yellow Cards']||0}</td>
+      <td style="color:var(--red)">${p['Red Cards']||0}</td>
+      <td style="color:var(--accent);font-weight:700">${parseFloat(p.Rating)||'—'}</td>
+    </tr>`).join('');
+}
+
+function buildPlayerStats(){
+  const teamSel = document.getElementById('ps-team-filter');
+  if(teamSel && PLAYER_STATS.length){
+    const teams = [...new Set(PLAYER_STATS.map(p=>p.Team).filter(Boolean))].sort();
+    teamSel.innerHTML = '<option value="">All Teams</option>'
+      + teams.map(t=>`<option value="${t}">${FLAG_MAP[t]||''} ${t}</option>`).join('');
+  }
+  const psEmpty = document.getElementById('ps-empty');
+  const psWrap  = document.getElementById('ps-wrap');
+  if(!PLAYER_STATS.length){
+    if(psEmpty) psEmpty.style.display='block';
+    if(psWrap)  psWrap.style.display='none';
+  } else {
+    if(psEmpty) psEmpty.style.display='none';
+    if(psWrap)  psWrap.style.display='';
+    filterPlayers();
+  }
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
@@ -657,9 +714,8 @@ buildFantasyGrid();
 buildGoldenBoot();
 buildGoldenGlove();
 buildPlaymaker();
-buildTeamStats();
-buildMatchLog();
-updateCompare();
+buildGoldenBall();
+buildPlayerStats();
 </script>
 </body>
 </html>

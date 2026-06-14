@@ -126,7 +126,7 @@ def update_team_stats(sh):
     ws = sh.worksheet('Team Stats')
     ws.clear()
     header = [
-        'Team', 'Matches Played', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Points',
+        'Team', 'Group', 'Matches Played', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Points',
         'Possession %', 'Shots', 'Shots on Target', 'xG', 'Pass Accuracy %',
         'Tackles', 'Interceptions', 'Fouls', 'Corners',
         'Yellow Cards', 'Red Cards', 'Clean Sheets',
@@ -134,10 +134,12 @@ def update_team_stats(sh):
     ]
     rows = [header]
     for group in data.get('standings', []):
+        grp_label = group.get('group', '') or ''
         for entry in group.get('table', []):
-            team = entry.get('team', {}).get('name', '')
+            team = normalise(entry.get('team', {}).get('name', ''))
             rows.append([
                 team,
+                grp_label,
                 entry.get('playedGames', 0),
                 entry.get('won', 0),
                 entry.get('draw', 0),
@@ -153,12 +155,46 @@ def update_team_stats(sh):
     print(f'  [OK] Team stats: {len(rows)-1} teams')
 
 
+# Extended columns that are manually entered — preserved across auto-refresh
+EXTENDED_COLS = [
+    'Saves', 'Clean Sheets', 'Passes', 'Chances Created',
+    'Tackles', 'Interceptions', 'Aerial Duels Won', 'Blocks', 'Fouls', 'Rating',
+]
+
+PLAYER_STATS_HEADER = [
+    'Player', 'Team', 'Position', 'Nationality',
+    'Matches', 'Goals', 'Assists', 'Yellow Cards', 'Red Cards',
+] + EXTENDED_COLS
+
+
 # ── PLAYER STATS ──────────────────────────────────────────────────────────────
 def update_player_stats(sh):
-    """Fetch all WC squads + top-scorer stats and write to Player Stats tab."""
+    """Fetch all WC squads + top-scorer stats and write to Player Stats tab.
+
+    Extended stats (Saves, Clean Sheets, Passes, etc.) are manually entered in
+    the sheet and are NOT available from the free-tier API.  We read them before
+    clearing and merge them back in so manual entries survive every 2-hour refresh.
+    """
     print('Updating player stats...')
 
-    # 1. Scorers — goals/assists for top 100 players (one API call)
+    ws = sh.worksheet('Player Stats')
+
+    # ── 0. Read existing sheet to preserve manually-entered extended stats ─────
+    existing_extended = {}  # {player_name_lower: {col: value}}
+    try:
+        existing_rows = ws.get_all_records()
+        for row in existing_rows:
+            name_key = str(row.get('Player', '')).strip().lower()
+            if not name_key:
+                continue
+            existing_extended[name_key] = {
+                col: row.get(col, '') for col in EXTENDED_COLS
+            }
+        print(f'  Existing extended stats cached for {len(existing_extended)} players')
+    except Exception as e:
+        print(f'  [WARN] Could not read existing Player Stats: {e}')
+
+    # ── 1. Scorers — goals/assists for top 100 players (one API call) ─────────
     scorers_map = {}
     try:
         data = fetch_json(f'{API_BASE}/competitions/{FIFA_COMP}/scorers?limit=100')
@@ -174,7 +210,7 @@ def update_player_stats(sh):
     except Exception as e:
         print(f'  [WARN] Could not fetch scorers: {e}')
 
-    # 2. All teams + squads — one API call returns all 32 squads inline
+    # ── 2. All teams + squads — one API call returns all 32 squads inline ─────
     all_players = []
     try:
         time.sleep(2)
@@ -183,12 +219,18 @@ def update_player_stats(sh):
         for team in teams:
             tname = normalise(team.get('name', ''))
             for p in team.get('squad', []):
-                pid    = p.get('id')
+                pid     = p.get('id')
                 raw_pos = p.get('position', '') or ''
-                pos    = POS_MAP.get(raw_pos, raw_pos)
-                sc     = scorers_map.get(pid, {})
-                all_players.append({
-                    'Player':       p.get('name', ''),
+                pos     = POS_MAP.get(raw_pos, raw_pos)
+                sc      = scorers_map.get(pid, {})
+                name    = p.get('name', '')
+                name_key = name.strip().lower()
+
+                # Merge manually-entered extended stats (default '' / 0 for new players)
+                ext = existing_extended.get(name_key, {})
+
+                player_row = {
+                    'Player':       name,
                     'Team':         tname,
                     'Position':     pos,
                     'Nationality':  p.get('nationality', ''),
@@ -197,7 +239,11 @@ def update_player_stats(sh):
                     'Assists':      sc.get('assists', 0),
                     'Yellow Cards': 0,
                     'Red Cards':    0,
-                })
+                }
+                for col in EXTENDED_COLS:
+                    player_row[col] = ext.get(col, '')
+
+                all_players.append(player_row)
         print(f'  Teams: {len(teams)}, Players: {len(all_players)}')
     except Exception as e:
         print(f'  [WARN] Could not fetch teams/squads: {e}')
@@ -209,12 +255,10 @@ def update_player_stats(sh):
     # Sort: goals desc → assists desc → name asc
     all_players.sort(key=lambda x: (-x['Goals'], -x['Assists'], x['Player']))
 
-    ws = sh.worksheet('Player Stats')
     ws.clear()
-    header = ['Player', 'Team', 'Position', 'Nationality', 'Matches', 'Goals', 'Assists', 'Yellow Cards', 'Red Cards']
-    rows   = [header] + [[p[col] for col in header] for p in all_players]
+    rows = [PLAYER_STATS_HEADER] + [[p[col] for col in PLAYER_STATS_HEADER] for p in all_players]
     ws.update(values=rows, range_name='A1')
-    print(f'  [OK] Player stats: {len(rows)-1} players written')
+    print(f'  [OK] Player stats: {len(rows)-1} players written (extended cols preserved)')
 
 
 # ── FULL SCHEDULE + MATCH LOG ─────────────────────────────────────────────────
