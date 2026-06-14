@@ -142,6 +142,14 @@ def fetch_player_stats(sh):
     return rows
 
 
+def _int(val, default=0):
+    """Safe int conversion — returns default for '—', '', or None."""
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return default
+
+
 def fetch_team_stats(sh):
     try:
         ws   = sh.worksheet('Team Stats')
@@ -156,15 +164,15 @@ def fetch_team_stats(sh):
         result.append({
             'team':   team,
             'group':  str(r.get('Group', '') or ''),
-            'played': int(r.get('Matches Played', 0) or 0),
-            'W':      int(r.get('W', 0) or 0),
-            'D':      int(r.get('D', 0) or 0),
-            'L':      int(r.get('L', 0) or 0),
-            'GF':     int(r.get('GF', 0) or 0),
-            'GA':     int(r.get('GA', 0) or 0),
-            'GD':     int(r.get('GD', 0) or 0),
-            'pts':    int(r.get('Points', 0) or 0),
-            'cs':     int(r.get('Clean Sheets', 0) or 0),
+            'played': _int(r.get('Matches Played', 0)),
+            'W':      _int(r.get('W', 0)),
+            'D':      _int(r.get('D', 0)),
+            'L':      _int(r.get('L', 0)),
+            'GF':     _int(r.get('GF', 0)),
+            'GA':     _int(r.get('GA', 0)),
+            'GD':     _int(r.get('GD', 0)),
+            'pts':    _int(r.get('Points', 0)),
+            'cs':     _int(r.get('Clean Sheets', 0)),
         })
     return result
 
