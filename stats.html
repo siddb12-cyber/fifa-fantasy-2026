@@ -314,10 +314,6 @@ table.ps-table tr:hover td{background:rgba(245,158,11,.03)}
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="fantasy" onclick="switchTab(this)">🎯 The Tracker</button>
     <button class="tab-btn" data-tab="golden-boot" onclick="switchTab(this)">👟 Golden Boot</button>
-    <button class="tab-btn" data-tab="golden-glove" onclick="switchTab(this)">🧤 Golden Glove</button>
-    <button class="tab-btn" data-tab="playmaker" onclick="switchTab(this)">🎩 The Playmaker</button>
-    <button class="tab-btn" data-tab="golden-ball" onclick="switchTab(this)">🌟 Golden Ball</button>
-    <button class="tab-btn" data-tab="player-stats" onclick="switchTab(this)">⚽ Player Stats</button>
   </div>
 
   <div class="container">
@@ -339,90 +335,6 @@ table.ps-table tr:hover td{background:rgba(245,158,11,.03)}
       </div>
     </div>
 
-    <!-- GOLDEN GLOVE -->
-    <div id="tab-golden-glove" class="tab-panel">
-      <div class="sec-hd">🧤 GOLDEN GLOVE — TOP KEEPERS</div>
-      <div class="award-grid" id="golden-glove-grid"></div>
-      <div class="no-data" id="golden-glove-empty">
-        <div class="icon">🧤</div>
-        <p>Golden Glove race begins June 12</p>
-        <small>Saves, clean sheets &amp; ratings tracked here</small>
-      </div>
-    </div>
-
-    <!-- PLAYMAKER AWARD -->
-    <div id="tab-playmaker" class="tab-panel">
-      <div class="sec-hd">🎩 PLAYMAKER AWARD — TOP CREATORS</div>
-      <div class="award-grid" id="playmaker-grid"></div>
-      <div class="no-data" id="playmaker-empty">
-        <div class="icon">🎩</div>
-        <p>Playmaker standings begin June 12</p>
-        <small>Assists, key passes &amp; chance creation tracked here</small>
-      </div>
-    </div>
-
-    <!-- GOLDEN BALL -->
-    <div id="tab-golden-ball" class="tab-panel">
-      <div class="sec-hd">🌟 GOLDEN BALL — BEST PLAYER RATINGS</div>
-      <div class="award-grid" id="golden-ball-grid"></div>
-      <div class="no-data" id="golden-ball-empty">
-        <div class="icon">🌟</div>
-        <p>Golden Ball ratings appear after matches are rated</p>
-        <small>Enter ratings in the Player Stats sheet — updates every 2 hours</small>
-      </div>
-    </div>
-
-    <!-- PLAYER STATS -->
-    <div id="tab-player-stats" class="tab-panel">
-      <div class="sec-hd">⚽ PLAYER STATS — ALL WC SQUADS</div>
-      <div class="ps-filters">
-        <input id="ps-search" class="ps-filter" type="text" placeholder="Search player…"
-               oninput="filterPlayers()" style="min-width:200px">
-        <select id="ps-pos-filter" class="ps-filter" onchange="filterPlayers()">
-          <option value="">All Positions</option>
-          <option value="GK">GK</option>
-          <option value="DEF">DEF</option>
-          <option value="MID">MID</option>
-          <option value="FWD">FWD</option>
-        </select>
-        <select id="ps-team-filter" class="ps-filter" onchange="filterPlayers()">
-          <option value="">All Teams</option>
-        </select>
-      </div>
-      <div id="ps-wrap" style="overflow-x:auto">
-        <table class="ps-table" id="ps-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Player</th>
-              <th onclick="sortBy('Team')" data-col="Team">Team</th>
-              <th onclick="sortBy('Position')" data-col="Position">Pos</th>
-              <th onclick="sortBy('Matches')" data-col="Matches">Apps</th>
-              <th onclick="sortBy('Goals')" data-col="Goals" class="sort-desc">⚽ Goals</th>
-              <th onclick="sortBy('Assists')" data-col="Assists">🎯 Assists</th>
-              <th onclick="sortBy('Saves')" data-col="Saves">🧤 Saves</th>
-              <th onclick="sortBy('Clean Sheets')" data-col="Clean Sheets">🧹 CS</th>
-              <th onclick="sortBy('Chances Created')" data-col="Chances Created">⚡ Chances</th>
-              <th onclick="sortBy('Passes')" data-col="Passes">🔗 Passes</th>
-              <th onclick="sortBy('Tackles')" data-col="Tackles">🛡 Tackles</th>
-              <th onclick="sortBy('Interceptions')" data-col="Interceptions">✂️ Int</th>
-              <th onclick="sortBy('Aerial Duels Won')" data-col="Aerial Duels Won">✈️ Aerial</th>
-              <th onclick="sortBy('Blocks')" data-col="Blocks">🚫 Blocks</th>
-              <th onclick="sortBy('Fouls')" data-col="Fouls">⚠️ Fouls</th>
-              <th onclick="sortBy('Yellow Cards')" data-col="Yellow Cards">🟨 YC</th>
-              <th onclick="sortBy('Red Cards')" data-col="Red Cards">🟥 RC</th>
-              <th onclick="sortBy('Rating')" data-col="Rating">⭐ Rating</th>
-            </tr>
-          </thead>
-          <tbody id="ps-body"></tbody>
-        </table>
-      </div>
-      <div class="no-data" id="ps-empty" style="display:none">
-        <div class="icon">⚽</div>
-        <p>Player stats load after matches kick off</p>
-        <small>Auto-updates every 2 hours · Extended stats editable in the sheet</small>
-      </div>
-    </div>
 
   </div><!-- /container -->
 </div><!-- /page -->
@@ -549,7 +461,13 @@ function buildGoldenBoot(){
   });
 }
 
-// ── GOLDEN GLOVE ─────────────────────────────────────────────────────────────
+// ── INIT ──────────────────────────────────────────────────────────────────────
+buildFantasyGrid();
+buildGoldenBoot();
+</script>
+</body>
+</html>
+<!-- DEAD CODE BELOW — never reached, kept for reference only
 function buildGoldenGlove(){
   const grid  = document.getElementById('golden-glove-grid');
   const empty = document.getElementById('golden-glove-empty');
@@ -708,13 +626,3 @@ function buildPlayerStats(){
   }
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
-buildFantasyGrid();
-buildGoldenBoot();
-buildGoldenGlove();
-buildPlaymaker();
-buildGoldenBall();
-buildPlayerStats();
-</script>
-</body>
-</html>
