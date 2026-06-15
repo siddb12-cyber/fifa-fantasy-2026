@@ -112,26 +112,48 @@ def fetch_leaderboard(sh):
 
 def fetch_poll_responses(sh, match_id):
     """Returns (vote_counts, player_pts) for a given match."""
-    ws          = sh.worksheet('Poll Responses')
-    rows        = ws.get_all_records()
+    ws       = sh.worksheet('Poll Responses')
+    all_vals = ws.get_all_values()
+    if not all_vals:
+        return {'a': 0, 'draw': 0, 'b': 0}, []
+
+    header = all_vals[0]
+    def col(name):
+        try:
+            return header.index(name)
+        except ValueError:
+            return -1
+
+    ci_mid    = col('Match ID')
+    ci_ans    = col('Their Answer')
+    ci_player = col('Player Name')
+    ci_pts    = col('Points Awarded')
+    ci_team_a = col('Team A')
+
     vote_counts = {'a': 0, 'draw': 0, 'b': 0}
     player_pts  = []
 
-    for r in rows:
-        if str(r.get('Match ID', '')) != match_id:
+    for row in all_vals[1:]:
+        def g(i): return row[i].strip() if i >= 0 and i < len(row) else ''
+        if g(ci_mid) != match_id:
             continue
-        ans = str(r.get('Their Answer', '')).lower()
+        ans = g(ci_ans).lower()
         if 'draw' in ans:
             vote_counts['draw'] += 1
-        elif r.get('Team A', '').lower() in ans or ans.endswith('wins') and 'b' not in ans:
+        elif g(ci_team_a).lower() in ans or (ans.endswith('wins') and 'b' not in ans):
             vote_counts['a'] += 1
         else:
             vote_counts['b'] += 1
+        player_name = g(ci_player)
+        try:
+            pts = int(g(ci_pts) or 0)
+        except ValueError:
+            pts = 0
         player_pts.append({
-            'player': r.get('Player Name', ''),
-            'ans':    r.get('Their Answer', ''),
-            'pts':    int(r.get('Points Awarded', 0) or 0),
-            'avatar': AVATAR_MAP.get(str(r.get('Player Name', '')).lower(), ''),
+            'player': player_name,
+            'ans':    g(ci_ans),
+            'pts':    pts,
+            'avatar': AVATAR_MAP.get(player_name.lower(), ''),
         })
     return vote_counts, player_pts
 
