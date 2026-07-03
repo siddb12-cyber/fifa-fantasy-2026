@@ -12,7 +12,7 @@ Usage:
   python dashboard_builder.py --deploy  # build + git push (local use)
 """
 
-import os, sys, json, re, base64, tempfile, subprocess
+import os, sys, json, re, base64, tempfile, subprocess, time
 import datetime
 from pathlib import Path
 
@@ -50,6 +50,33 @@ AVATAR_MAP = {
 
 
 # ── GOOGLE SHEETS ─────────────────────────────────────────────────────────────
+def with_retry(fn, *args, max_retries=4, base_delay=20, **kwargs):
+    """Call fn(*args, **kwargs), retrying with backoff on Sheets API 429 quota errors.
+
+    root cause of the 'Quota exceeded for Read requests per minute' crash:
+    every sh.worksheet(name) call does a full fetch_sheet_metadata() read under
+    the hood, and this used to be called once PER match inside build_match_pages.
+    That's fixed by fetching each worksheet once (see fetch_poll_data below),
+    but this wrapper is kept as a safety net for transient rate limiting.
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return fn(*args, **kwargs)
+        except gspread.exceptions.APIError as e:
+            status = None
+            try:
+                status = e.response.status_code
+            except Exception:
+                pass
+            if status == 429 and attempt < max_retries:
+                delay = base_delay * (attempt + 1)
+                print(f'  ⏳ Sheets API rate-limited (429) — retrying in {delay}s '
+                      f'(attempt {attempt + 1}/{max_retries})...')
+                time.sleep(delay)
+                continue
+            raise
+
+
 def connect_sheets():
     """Connect using env var credentials (GitHub Actions) or local file."""
     if GCP_CREDS:
@@ -71,17 +98,17 @@ def connect_sheets():
     gc    = gspread.authorize(creds)
 
     if SHEET_ID:
-        sh = gc.open_by_key(SHEET_ID)
+        sh = with_retry(gc.open_by_key, SHEET_ID)
     else:
-        sh = gc.open('FIFA World Cup 2026')
+        sh = with_retry(gc.open, 'FIFA World Cup 2026')
 
     print(f'  ✅ Sheet connected: {sh.title}')
     return sh
 
 
 def fetch_leaderboard(sh):
-    ws   = sh.worksheet('Leaderboard')
-    rows = ws.get_all_records()
+    ws   = with_retry(sh.worksheet, 'Leaderboard')
+    rows = with_retry(ws.get_all_records)
     data = []
     for row in rows:
         player = str(row.get('Player', '')).strip()
@@ -110,14 +137,29 @@ def fetch_leaderboard(sh):
     return data
 
 
-def fetch_poll_responses(sh, match_id):
-    """Returns (vote_counts, player_pts) for a given match."""
-    ws       = sh.worksheet('Poll Responses')
-    all_vals = ws.get_all_values()
+def fetch_poll_data(sh):
+    """Fetch the entire Poll Responses sheet exactly ONCE.
+
+    Previously this was fetched fresh (worksheet lookup + get_all_values) for
+    every single non-upcoming match inside build_match_pages — 2 API reads x
+    N completed matches. As the tournament progressed and more matches
+    finished, that loop alone started exceeding the 60-reads/min Sheets quota
+    (the 429 error). Now we fetch once here and every caller filters the
+    already-downloaded rows in memory.
+    """
+    ws       = with_retry(sh.worksheet, 'Poll Responses')
+    all_vals = with_retry(ws.get_all_values)
     if not all_vals:
+        return [], []
+    return all_vals[0], all_vals[1:]
+
+
+def parse_poll_for_match(header, rows, match_id):
+    """Returns (vote_counts, player_pts) for a given match from pre-fetched
+    Poll Responses data (see fetch_poll_data). No API calls."""
+    if not header:
         return {'a': 0, 'draw': 0, 'b': 0}, []
 
-    header = all_vals[0]
     def col(name):
         try:
             return header.index(name)
@@ -133,7 +175,7 @@ def fetch_poll_responses(sh, match_id):
     vote_counts = {'a': 0, 'draw': 0, 'b': 0}
     player_pts  = []
 
-    for row in all_vals[1:]:
+    for row in rows:
         def g(i): return row[i].strip() if i >= 0 and i < len(row) else ''
         if g(ci_mid) != match_id:
             continue
@@ -159,8 +201,8 @@ def fetch_poll_responses(sh, match_id):
 
 
 def fetch_player_stats(sh):
-    ws   = sh.worksheet('Player Stats')
-    rows = ws.get_all_records()
+    ws   = with_retry(sh.worksheet, 'Player Stats')
+    rows = with_retry(ws.get_all_records)
     return rows
 
 
@@ -174,8 +216,8 @@ def _int(val, default=0):
 
 def fetch_team_stats(sh):
     try:
-        ws   = sh.worksheet('Team Stats')
-        rows = ws.get_all_records()
+        ws   = with_retry(sh.worksheet, 'Team Stats')
+        rows = with_retry(ws.get_all_records)
     except Exception:
         return []
     result = []
@@ -199,26 +241,40 @@ def fetch_team_stats(sh):
     return result
 
 
-def fetch_match_log_with_votes(sh):
+def fetch_match_log_with_votes(sh, poll_header, poll_rows):
+    """poll_header/poll_rows come from fetch_poll_data() — reused here instead
+    of re-fetching Poll Responses a second time."""
     try:
-        ml_rows = sh.worksheet('Match Log').get_all_records()
+        ws      = with_retry(sh.worksheet, 'Match Log')
+        ml_rows = with_retry(ws.get_all_records)
     except Exception:
         return []
-    try:
-        pr_rows = sh.worksheet('Poll Responses').get_all_records()
-    except Exception:
-        pr_rows = []
 
     votes_by_mid = {}
-    for r in pr_rows:
-        mid = str(r.get('Match ID', '')).strip()
-        if not mid:
-            continue
-        votes_by_mid.setdefault(mid, []).append({
-            'player': str(r.get('Player Name', '')),
-            'ans':    str(r.get('Their Answer', '')),
-            'pts':    int(r.get('Points Awarded', 0) or 0),
-        })
+    if poll_header:
+        def col(name):
+            try:
+                return poll_header.index(name)
+            except ValueError:
+                return -1
+        ci_mid    = col('Match ID')
+        ci_player = col('Player Name')
+        ci_ans    = col('Their Answer')
+        ci_pts    = col('Points Awarded')
+        for row in poll_rows:
+            def g(i): return row[i].strip() if 0 <= i < len(row) else ''
+            mid = g(ci_mid)
+            if not mid:
+                continue
+            try:
+                pts = int(g(ci_pts) or 0)
+            except ValueError:
+                pts = 0
+            votes_by_mid.setdefault(mid, []).append({
+                'player': g(ci_player),
+                'ans':    g(ci_ans),
+                'pts':    pts,
+            })
 
     result = []
     for r in ml_rows:
@@ -239,8 +295,8 @@ def fetch_match_log_with_votes(sh):
 
 
 def fetch_schedule(sh):
-    ws   = sh.worksheet('Full Schedule')
-    rows = ws.get_all_records()
+    ws   = with_retry(sh.worksheet, 'Full Schedule')
+    rows = with_retry(ws.get_all_records)
     data = []
     for r in rows:
         data.append({
@@ -310,8 +366,14 @@ def build_schedule_page(schedule):
     path.write_text(html, encoding='utf-8')
 
 
-def build_match_pages(sh, schedule):
-    """Generate per-match HTML from template for completed/live matches."""
+def build_match_pages(schedule, poll_header, poll_rows):
+    """Generate per-match HTML from template for completed/live matches.
+
+    poll_header/poll_rows come from a single fetch_poll_data() call — this
+    used to call fetch_poll_responses(sh, m['id']) per match, which re-hit
+    the Sheets API twice per match and was the direct cause of the 429
+    'Read requests per minute' quota crash once enough matches were done.
+    """
     template = DASH_DIR / 'match' / 'template.html'
     if not template.exists():
         print('  ⚠ match/template.html not found — skipping match pages')
@@ -321,7 +383,7 @@ def build_match_pages(sh, schedule):
     for m in schedule:
         if m['status'] == 'Upcoming':
             continue
-        vc, pp = fetch_poll_responses(sh, m['id'])
+        vc, pp = parse_poll_for_match(poll_header, poll_rows, m['id'])
         match_data = {**m, 'voteCounts': vc, 'playerPoints': pp}
         data_str   = json.dumps(match_data, ensure_ascii=False)
         # Replace window.MATCH_DATA || {...}
@@ -369,13 +431,14 @@ def main():
     schedule     = fetch_schedule(sh)
     player_stats = fetch_player_stats(sh)
     team_stats   = fetch_team_stats(sh)
-    match_log    = fetch_match_log_with_votes(sh)
+    poll_header, poll_rows = fetch_poll_data(sh)          # fetched ONCE, reused below
+    match_log    = fetch_match_log_with_votes(sh, poll_header, poll_rows)
 
     print('🏗 Building dashboard...')
     build_index(leaderboard)
     build_stats(leaderboard, player_stats, team_stats, match_log)
     build_schedule_page(schedule)
-    build_match_pages(sh, schedule)
+    build_match_pages(schedule, poll_header, poll_rows)
 
     ts = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
     print(f'\n✅ Dashboard rebuilt at {ts}')

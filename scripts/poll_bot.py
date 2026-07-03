@@ -25,7 +25,26 @@ FORCE       = os.environ.get('FORCE_SEND', 'false').lower() == 'true'   # bypass
 FORCE_MATCH = os.environ.get('FORCE_MATCH', '').strip()               # specific match ID to force (e.g. T002)
 TRIAL_MODE  = os.environ.get('TRIAL_MODE',  'false').lower() == 'true' # use trial_matches.json
 
-PLAYERS_ALL = ['Budhya', 'Ambu', 'Vini', 'Baby', 'Abs', 'Anna', 'Umaga', 'PR']
+PLAYERS_ALL = ['Budhya', 'Ambu', 'Vini', 'Baby', 'Abs', 'Anna', 'Umaga', 'PR', 'Ash']
+
+# ── STAGE-BASED SCORING (updated 03 Jul 2026) ──────────────────────────────────
+# Group stage keeps the original flat scoring. Knockout stages scale up.
+STAGE_POINTS = {
+    'Round of 32':   {'correct': 4,  'wrong': -1, 'miss': -3},
+    'Round of 16':   {'correct': 5,  'wrong': -2, 'miss': -4},
+    'Quarter-Final': {'correct': 6,  'wrong': -3, 'miss': -5},
+    'Semi-Final':    {'correct': 8,  'wrong': -4, 'miss': -6},
+    'Third Place':   {'correct': 8,  'wrong': -4, 'miss': -6},
+    'Final':         {'correct': 10, 'wrong': -6, 'miss': -8},
+}
+DEFAULT_STAGE_POINTS = {'correct': 3, 'wrong': 0, 'miss': -2}  # Group stage (unchanged)
+
+
+def get_stage_points(stage):
+    """Look up the (correct, wrong, miss) point values for a given stage.
+    Falls back to Group Stage defaults for anything not explicitly listed
+    (e.g. 'Group A' .. 'Group L')."""
+    return STAGE_POINTS.get(str(stage).strip(), DEFAULT_STAGE_POINTS)
 
 IST  = pytz.timezone('Asia/Kolkata')
 BASE = f'https://api.telegram.org/bot{TOKEN}'
@@ -464,6 +483,8 @@ def score_completed_matches(gc, match_lookup, sent_log):
         info    = match_lookup.get(mid, {})
         team_a  = info.get('team_a') or match.get('Team A', '')
         team_b  = info.get('team_b') or match.get('Team B', '')
+        stage   = info.get('stage') or match.get('Group/Stage', '')
+        sp      = get_stage_points(stage)
         correct = get_correct_answer(score_a, score_b, team_a, team_b)
         if not correct:
             print(f'  ⚠ Could not derive correct answer for {mid} (scores: {score_a}-{score_b})')
@@ -490,7 +511,7 @@ def score_completed_matches(gc, match_lookup, sent_log):
 
             player_name = row[header.index('Player Name')] if 'Player Name' in header else ''
             their_ans   = str(row[col_answer]).strip()
-            pts         = 3 if their_ans == correct else 0
+            pts         = sp['correct'] if their_ans == correct else sp['wrong']
             rows_to_update.append((i, correct, pts, player_name))
             voted_players.add(player_name)
 
@@ -509,8 +530,8 @@ def score_completed_matches(gc, match_lookup, sent_log):
             if player not in voted_players:
                 match_name = f'{team_a} vs {team_b}'
                 try:
-                    resp_ws.append_row([mid, match_name, player, 'MISSED', correct, -2, ts])
-                    print(f'  📋 MISSED: {player} → {mid} (−2 pts)')
+                    resp_ws.append_row([mid, match_name, player, 'MISSED', correct, sp['miss'], ts])
+                    print(f'  📋 MISSED: {player} → {mid} ({sp["miss"]} pts)')
                     changes_made = True
                 except Exception as e:
                     print(f'  ⚠ Failed to add MISSED row for {player}: {e}')
@@ -548,13 +569,14 @@ def update_leaderboard(gc):
         # Skip rows where result hasn't been declared yet (Correct Answer blank)
         if not str(row.get('Correct Answer', '')).strip():
             continue
-        pts       = int(row.get('Points Awarded') or 0)
-        their_ans = str(row.get('Their Answer', '')).strip()
+        pts         = int(row.get('Points Awarded') or 0)
+        their_ans   = str(row.get('Their Answer', '')).strip()
+        correct_ans = str(row.get('Correct Answer', '')).strip()
         totals[player]['total'] += pts
-        if pts == 3:
-            totals[player]['correct'] += 1
-        elif their_ans == 'MISSED':
+        if their_ans == 'MISSED':
             totals[player]['missed'] += 1
+        elif their_ans == correct_ans:
+            totals[player]['correct'] += 1
         else:
             totals[player]['wrong'] += 1
 
@@ -603,7 +625,10 @@ def main():
         matches = json.load(f)
 
     # Build match_id → {team_a, team_b} lookup for answer resolution
-    match_lookup = {m['id']: {'team_a': m['team_a'], 'team_b': m['team_b']} for m in matches}
+    match_lookup = {
+        m['id']: {'team_a': m['team_a'], 'team_b': m['team_b'], 'stage': m.get('stage', '')}
+        for m in matches
+    }
 
     gc = connect_sheets()
 
@@ -726,7 +751,16 @@ def main():
     else:
         print(f'\n  ✅ Sent {sent_count} notification(s).')
 
-    # Poll Responses and Leaderboard are managed manually — auto-scoring is disabled.
+    # ── Step 5: Auto-score completed matches + refresh leaderboard ──────────────
+    # Re-enabled 03 Jul 2026 alongside the stage-based scoring update
+    # (Round of 32 / 16 / QF / SF+3rd / Final now award different points —
+    # see STAGE_POINTS at the top of this file). Skips matches already
+    # marked '<id>::scored' in Sent Log, so steady-state runs cost ~0 extra
+    # API calls; only a fresh Completed match triggers writes.
+    try:
+        score_completed_matches(gc, match_lookup, sent_log)
+    except Exception as e:
+        print(f'  ⚠ score_completed_matches failed (non-fatal): {e}')
 
 
 if __name__ == '__main__':
