@@ -11,7 +11,7 @@ Sends:
 
 Deduplication via Google Sheets "Sent Log" tab.
 """
-import os, json, datetime, base64, tempfile, random
+import os, json, datetime, base64, tempfile, random, re, unicodedata
 import pytz, requests, gspread
 from google.oauth2.service_account import Credentials
 
@@ -547,8 +547,90 @@ def score_completed_matches(gc, match_lookup, sent_log):
         update_leaderboard(gc)
 
 
+# ── BONUS QUESTIONS (one-time, added after the Final) ──────────────────────────
+def _norm(s):
+    """Lowercase, strip accents, collapse whitespace — for loose name matching."""
+    s = unicodedata.normalize('NFKD', str(s or '')).encode('ascii', 'ignore').decode('ascii')
+    return re.sub(r'\s+', ' ', s).strip().lower()
+
+
+def _bonus_match(pick, correct):
+    """True if pick and correct clearly refer to the same answer.
+    Handles 'Mbappe' vs 'Kylian Mbappe' vs 'Kylian Mbappé' etc. via substring
+    match on normalised (accent-stripped, lowercased) text. Does NOT fix
+    typos (e.g. 'Mbpape') — those are treated as literal, non-matching text
+    on purpose, since silently "fixing" someone's answer is a judgment call
+    that belongs to a human, not this script."""
+    p, c = _norm(pick), _norm(correct)
+    if not p or not c:
+        return False
+    return p == c or c in p or p in c
+
+
+def fetch_bonus_points(gc):
+    """Reads the 'Bonus Answers' tab (created by scripts/setup_bonus_tab.py):
+    5 one-time bonus questions, +10 pts per correct pick, meant to be added
+    ONCE after the tournament Final. Returns {player: bonus_points}.
+
+    Returns {} (i.e. contributes 0 for everyone) if the tab doesn't exist yet,
+    or if any of the 5 'Correct Answer' cells are still blank — so this is
+    always safe to call on every run; it only starts contributing points once
+    the user has filled in all 5 results after the Final.
+    """
+    if not gc:
+        return {}
+    try:
+        sh = gc.open_by_key(SHEET_ID)
+        ws = sh.worksheet('Bonus Answers')
+    except Exception:
+        return {}   # tab doesn't exist yet — no bonus, not an error
+
+    vals = ws.get_all_values()
+    if not vals:
+        return {}
+
+    # Locate both blocks by header text (robust to inserted/blank rows)
+    answers_header_idx = None
+    correct_header_idx = None
+    for i, row in enumerate(vals):
+        if row and row[0].strip() == 'Player':
+            answers_header_idx = i
+        if len(row) >= 2 and row[0].strip() == 'Question' and row[1].strip() == 'Correct Answer':
+            correct_header_idx = i
+
+    if answers_header_idx is None or correct_header_idx is None:
+        return {}
+
+    questions = [q.strip() for q in vals[answers_header_idx][1:] if q.strip()]
+
+    correct = {}
+    for row in vals[correct_header_idx + 1:]:
+        if len(row) < 2 or not row[0].strip():
+            break
+        correct[row[0].strip()] = row[1].strip()
+
+    # Inert until ALL 5 correct answers are filled in
+    if len(correct) < len(questions) or any(not v for v in correct.values()):
+        return {}
+
+    bonus = {}
+    for row in vals[answers_header_idx + 1: correct_header_idx]:
+        if not row or not row[0].strip():
+            continue
+        player = row[0].strip()
+        pts = 0
+        for j, q in enumerate(questions, start=1):
+            pick = row[j] if j < len(row) else ''
+            if q in correct and _bonus_match(pick, correct[q]):
+                pts += 10
+        bonus[player] = pts
+
+    return bonus
+
+
 def update_leaderboard(gc):
-    """Re-derive leaderboard totals from Poll Responses and update Leaderboard tab."""
+    """Re-derive leaderboard totals from Poll Responses (+ one-time bonus
+    questions once they're filled in) and update Leaderboard tab."""
     if not gc:
         return
     try:
@@ -580,19 +662,35 @@ def update_leaderboard(gc):
         else:
             totals[player]['wrong'] += 1
 
+    bonus = fetch_bonus_points(gc)   # {} until all 5 bonus results are filled in
+
     lb_rows = lb_ws.get_all_records()
     ts      = datetime.datetime.now(IST).strftime('%d %b %Y %H:%M IST')
 
+    if bonus:
+        # Label column J once, the first time bonus points actually land
+        try:
+            if lb_ws.acell('J1').value != 'Bonus Points':
+                lb_ws.update_cell(1, 10, 'Bonus Points')
+        except Exception as e:
+            print(f'  ⚠ Failed to set Bonus Points header: {e}')
+
     for i, row in enumerate(lb_rows):
-        player  = str(row.get('Player', '')).strip()
+        player     = str(row.get('Player', '')).strip()
         if player not in totals:
             continue
-        d       = totals[player]
-        row_num = i + 2   # 1-based + header row
+        d          = totals[player]
+        bonus_pts  = bonus.get(player, 0)
+        row_num    = i + 2   # 1-based + header row
         try:
+            # Total Points (D) = prediction points + bonus, so this stays
+            # correct no matter how many more times this function reruns —
+            # never edit Total Points by hand, it's always fully recomputed here.
             lb_ws.update(f'D{row_num}:I{row_num}', [[
-                d['total'], d['correct'], d['wrong'], d['missed'], '—', ts
+                d['total'] + bonus_pts, d['correct'], d['wrong'], d['missed'], '—', ts
             ]])
+            if bonus:
+                lb_ws.update(f'J{row_num}', [[bonus_pts]])
         except Exception as e:
             print(f'  ⚠ Failed to update leaderboard row for {player}: {e}')
 
@@ -605,7 +703,7 @@ def update_leaderboard(gc):
         except Exception as e:
             print(f'  ⚠ Failed to update rank: {e}')
 
-    print(f'  ✅ Leaderboard updated.')
+    print(f'  ✅ Leaderboard updated.' + (f' (bonus questions included: {sum(bonus.values())} total pts)' if bonus else ''))
 
 
 # ── MAIN LOOP ─────────────────────────────────────────────────────────────────
@@ -761,6 +859,24 @@ def main():
         score_completed_matches(gc, match_lookup, sent_log)
     except Exception as e:
         print(f'  ⚠ score_completed_matches failed (non-fatal): {e}')
+
+    # ── Step 6: Pick up bonus-question results, independent of match scoring ───
+    # score_completed_matches() only calls update_leaderboard() when a NEW
+    # match gets scored — once the Final is scored, nothing will ever trigger
+    # it again, so the one-time bonus points (see setup_bonus_tab.py /
+    # fetch_bonus_points) would never get applied even after you fill in the
+    # 5 correct answers. This checks independently every run, but costs only
+    # 1-2 cheap reads and does ZERO writes until fetch_bonus_points() returns
+    # something (i.e. until all 5 Correct Answer cells are filled in).
+    # NOTE: once bonus points do land, this recomputes+rewrites the whole
+    # leaderboard every 30 min for as long as the workflow stays enabled —
+    # harmless (idempotent) but pointless after you're happy with the final
+    # standings. Pause/disable poll_scheduler.yml once the season's fully wrapped.
+    try:
+        if fetch_bonus_points(gc):
+            update_leaderboard(gc)
+    except Exception as e:
+        print(f'  ⚠ bonus-points check failed (non-fatal): {e}')
 
 
 if __name__ == '__main__':
