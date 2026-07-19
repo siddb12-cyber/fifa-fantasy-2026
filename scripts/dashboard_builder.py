@@ -12,7 +12,7 @@ Usage:
   python dashboard_builder.py --deploy  # build + git push (local use)
 """
 
-import os, sys, json, re, base64, tempfile, subprocess, time
+import os, sys, json, re, base64, tempfile, subprocess, time, unicodedata
 import datetime
 from pathlib import Path
 
@@ -106,9 +106,86 @@ def connect_sheets():
     return sh
 
 
+def fetch_bonus_points(sh):
+    """Reads the 'Bonus Answers' tab and returns {player: bonus_points}.
+
+    Prefers an explicit 'Total' column in the player-answers block if one
+    exists (the live sheet has one now, filled in manually) — falls back to
+    computing it from the Correct Answer block via the same fuzzy-match
+    logic as poll_bot.py's fetch_bonus_points(), for whenever the Total
+    column isn't there. Returns {} (0 for everyone) if the tab is missing.
+    """
+    try:
+        ws = with_retry(sh.worksheet, 'Bonus Answers')
+    except Exception:
+        return {}
+    vals = with_retry(ws.get_all_values)
+    if not vals:
+        return {}
+
+    answers_header_idx = None
+    correct_header_idx = None
+    for i, row in enumerate(vals):
+        if row and row[0].strip() == 'Player':
+            answers_header_idx = i
+        if len(row) >= 2 and row[0].strip() == 'Question' and row[1].strip() == 'Correct Answer':
+            correct_header_idx = i
+    if answers_header_idx is None:
+        return {}
+
+    header    = vals[answers_header_idx]
+    end_idx   = correct_header_idx if correct_header_idx is not None else len(vals)
+    player_rows = [r for r in vals[answers_header_idx + 1:end_idx] if r and r[0].strip()]
+
+    # Preferred: an explicit 'Total' column already filled in on the sheet
+    if 'Total' in header:
+        ti = header.index('Total')
+        bonus = {}
+        for row in player_rows:
+            if ti < len(row) and row[ti].strip():
+                try:
+                    bonus[row[0].strip()] = int(row[ti].strip())
+                except ValueError:
+                    pass
+        if bonus:
+            return bonus
+
+    # Fallback: compute from the Correct Answer block (mirrors poll_bot.py)
+    if correct_header_idx is None:
+        return {}
+    questions = [q.strip() for q in header[1:] if q.strip() and q.strip() != 'Total']
+    correct = {}
+    for row in vals[correct_header_idx + 1:]:
+        if len(row) < 2 or not row[0].strip():
+            break
+        correct[row[0].strip()] = row[1].strip()
+    if len(correct) < len(questions) or any(not v for v in correct.values()):
+        return {}
+
+    def _norm(s):
+        s = unicodedata.normalize('NFKD', str(s or '')).encode('ascii', 'ignore').decode('ascii')
+        return re.sub(r'\s+', ' ', s).strip().lower()
+
+    def _match(pick, corr):
+        p, c = _norm(pick), _norm(corr)
+        return bool(p and c and (p == c or c in p or p in c))
+
+    bonus = {}
+    for row in player_rows:
+        player = row[0].strip()
+        pts = 0
+        for j, q in enumerate(questions, start=1):
+            pick = row[j] if j < len(row) else ''
+            if q in correct and _match(pick, correct[q]):
+                pts += 10
+        bonus[player] = pts
+    return bonus
+
+
 def fetch_leaderboard(sh):
-    ws   = with_retry(sh.worksheet, 'Leaderboard')
-    rows = with_retry(ws.get_all_records)
+    ws    = with_retry(sh.worksheet, 'Leaderboard')
+    rows  = with_retry(ws.get_all_records)
+    bonus = fetch_bonus_points(sh)
     data = []
     for row in rows:
         player = str(row.get('Player', '')).strip()
@@ -130,6 +207,7 @@ def fetch_leaderboard(sh):
             'missed':  missed,
             'streak':  streak,
             'delta':   '0',
+            'bonus':   bonus.get(player, 0),
         })
     data.sort(key=lambda x: -x['pts'])
     for i, r in enumerate(data):
